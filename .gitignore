@@ -1,0 +1,30 @@
+# 📦 Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# 🔐 Environment Variables
+.env
+.env.local
+client/.env
+server/.env
+
+# 🏗️ Production Build Files
+dist/
+client/dist/
+build/
+
+# 🗜️ Compressed Files (මේකෙන් තමයි Zip ෆයිල්ස් යන එක නවත්තන්නේ)
+*.zip
+*.rar
+*.tar.gz
+*.7z
+
+# 💻 OS Generated Files
+.DS_Store
+Thumbs.db
+
+# 📝 Log Files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
