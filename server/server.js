@@ -36,8 +36,12 @@ app.use(helmet());
 
 // Middleware
 app.use(cors({
-origin: process.env.CLIENT_URL || 'http://localhost:5173',
-credentials: true,
+    origin: [
+        'http://localhost:5173',           // 💻 Local Development වලට
+        'https://nexia-core.vercel.app',   // 🚀 Vercel Production Link එක (අගට / දාන්න එපා)
+        process.env.CLIENT_URL             // (Optional) Railway එකෙන් Variable එකක් දුන්නොත්
+    ].filter(Boolean),
+    credentials: true,
 }));
 app.use(express.json());
 
