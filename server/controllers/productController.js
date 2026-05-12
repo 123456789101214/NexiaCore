@@ -272,6 +272,7 @@ export const applyDiscount = async (req, res) => {
 
         if (percentage === 0) {
             product.discount = { isActive: false, percentage: 0, discountedPrice: 0 };
+            product.expiryDiscountApplied = false; // 💡 Reset state if discount is removed
         } else {
             const discountedPrice = Math.round(product.price - (product.price * (percentage / 100)));
 
@@ -283,6 +284,7 @@ export const applyDiscount = async (req, res) => {
             }
 
             product.discount = { isActive: true, percentage, discountedPrice };
+            product.expiryDiscountApplied = true; // 💡 Mark action as taken!
         }
 
         product.updatedBy = req.user._id;

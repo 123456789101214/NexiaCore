@@ -13,6 +13,11 @@ const ProductSchema = new mongoose.Schema({
         percentage: { type: Number, default: 0, min: 0, max: 100 },
         discountedPrice: { type: Number, default: 0 }
     },
+    // 💡 PRO FIX: Tracking applied expiry actions
+    expiryDiscountApplied: {
+        type: Boolean,
+        default: false
+    },
     stock: { type: Number, default: 0 },
     unit: { type: String, enum: ['pcs', 'kg', 'g', 'ltr', 'ml', 'packet', 'bottle', 'bundle'], default: 'pcs' },
     minStockLevel: { type: Number, default: 10 },
