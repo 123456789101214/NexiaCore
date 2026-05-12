@@ -182,3 +182,34 @@
     border-right-color: var(--border);
   }
 }
+
+/* =========================================
+   🖨️ THERMAL PRINTER MEDIA QUERIES
+   ========================================= */
+@media print {
+  /* 1. Print වෙද්දී මුළු පිටුවම (UI එක) Hide කරනවා */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 2. Bill එක තියෙන කෑල්ල විතරක් අනිවාර්යයෙන්ම පෙන්නනවා */
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+
+  /* 3. Bill එක වම් පැත්තේ උඩ කෙළවරට අරන් Thermal Size එකට හදනවා */
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm; /* ඔයාගේ පින්ටර් එක 58mm නම්, මේක 58mm කරන්න */
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 4. Print වෙන කොළේ Default Size එක A4/Letter වලින් අයින් කරලා Thermal Roll එකකට හදනවා */
+  @page {
+    size: 80mm auto; /* 58mm පාවිච්චි කරනවා නම් 58mm auto දෙන්න */
+    margin: 0;
+  }
+}

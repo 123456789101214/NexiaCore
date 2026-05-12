@@ -15,7 +15,7 @@ const PrintableReceipt = React.forwardRef(({ cart, total, billNumber, user, paid
     }, 0);
 
     return (
-        <div ref={ref} className="p-6 w-[80mm] bg-white text-black font-mono leading-tight">
+        <div id="printable-receipt" ref={ref} className="p-6 w-[80mm] bg-white text-black font-mono leading-tight">
             
             {/* Header - Brand Identity */}
             <div className="text-center mb-4">
