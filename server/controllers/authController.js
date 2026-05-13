@@ -5,38 +5,39 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer'; // 💡 NEW: Email sending
 import crypto from 'crypto'; // 💡 NEW: Secure OTP generation
 import EmailVerification from '../models/EmailVerification.js'; // 💡 NEW: OTP Model
-import { createTransport } from 'nodemailer';
-import dns from 'dns';
-import { Resolver } from 'dns/promises';
+import dns from 'dns'; // 💡 FIX: DNS for custom lookup
+import { Resolver } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lookup
 
-// ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER ━━━
-// Force IPv4 DNS resolution — Railway does not support IPv6
-dns.setDefaultResultOrder('ipv4first');
+// ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER & IPv4 CUSTOM LOOKUP ━━━
+let transporter = null;
 
-// @private — IPv4-only SMTP transporter for Railway/Render compatibility
-// Railway blocks IPv6 outbound. nodemailer's `family:4` is unreliable.
-// Custom lookup() guarantees IPv4 socket at the resolver level.
 const getTransporter = () => {
-  return createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_APP_PASSWORD,
-    },
-    tls: {
-      rejectUnauthorized: true,
-    },
-    // ── THE REAL FIX: custom DNS resolver that only returns IPv4 ──
-    lookup: (hostname, _options, callback) => {
-      const resolver = new Resolver();
-      resolver.resolve4(hostname, (err, addresses) => {
-        if (err) return callback(err);
-        callback(null, addresses[0], 4); // always IPv4
-      });
-    },
-  });
+    if (!transporter) {
+        transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false,
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_APP_PASSWORD
+            },
+            tls: {
+                rejectUnauthorized: true,
+            },
+            // ── THE REAL FIX: custom DNS resolver that only returns IPv4 ──
+            lookup: (hostname, _options, callback) => {
+                const resolver = new Resolver();
+                resolver.resolve4(hostname)
+                    .then(addresses => {
+                        callback(null, addresses[0], 4);
+                    })
+                    .catch(err => {
+                        callback(err);
+                    });
+            }
+        });
+    }
+    return transporter;
 };
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -44,8 +45,8 @@ const generateToken = (id, role, shopId) => {
     return jwt.sign({ id, role, shopId }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @desc    Register a new Shop and Owner
-// @route   POST /api/auth/register
+// @desc   Register a new Shop and Owner
+// @route  POST /api/auth/register
 export const register = async (req, res) => {
     // ━━━ 🛡️ ALREADY-LOGGED-IN GUARD ━━━
     const authHeader = req.headers.authorization;
@@ -155,8 +156,8 @@ export const register = async (req, res) => {
     }
 };
 
-// @desc    Login User
-// @route   POST /api/auth/login
+// @desc   Login User
+// @route  POST /api/auth/login
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -180,7 +181,6 @@ export const login = async (req, res) => {
             }
 
             // ━━━ 🛡️ SECURITY GUARD 2: Block Deactivated (Inactive) accounts ━━━
-            // 💡 මෙන්න මේ කෑල්ල තමයි අලුතින් එකතු කරේ
             if (user.isActive === false) {
                 return res.status(403).json({
                     success: false,
@@ -209,9 +209,9 @@ export const login = async (req, res) => {
     }
 };
 
-// @desc    Register a new staff member under the current shop
-// @route   POST /api/auth/register-staff
-// @access  Private (Owner/Admin only)
+// @desc   Register a new staff member under the current shop
+// @route  POST /api/auth/register-staff
+// @access Private (Owner/Admin only)
 export const registerStaff = async (req, res) => {
     try {
         const { name, email, password, role } = req.body;
@@ -266,9 +266,9 @@ export const registerStaff = async (req, res) => {
 
 // ─── NEW: OTP EMAIL VERIFICATION SYSTEM ───────────────────────────────────
 
-// @desc    Send OTP to email
-// @route   POST /api/auth/send-otp
-// @access  Public
+// @desc   Send OTP to email
+// @route  POST /api/auth/send-otp
+// @access Public
 export const sendOtp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -327,14 +327,12 @@ export const sendOtp = async (req, res) => {
             `
         };
 
-        // 💡 ෙමෙතන තමයි වෙනස! getTransporter() function එක call කරනවා.
         const mailer = getTransporter();
         await mailer.sendMail(mailOptions);
         
         res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
 
     } catch (error) {
-        // අනිවාර්යයෙන්ම Backend Terminal එකේ මේ Error එක මොකක්ද කියලා බලාගන්න (Console log එක)
         console.error('Send OTP Error:', error); 
         
         if (req.body.email) {
@@ -344,9 +342,9 @@ export const sendOtp = async (req, res) => {
     }
 };
 
-// @desc    Verify OTP
-// @route   POST /api/auth/verify-otp
-// @access  Public
+// @desc   Verify OTP
+// @route  POST /api/auth/verify-otp
+// @access Public
 export const verifyOtp = async (req, res) => {
     try {
         const { email, otp } = req.body;
@@ -403,9 +401,9 @@ export const verifyOtp = async (req, res) => {
     }
 };
 
-// @desc    Send password reset OTP
-// @route   POST /api/auth/forgot-password
-// @access  Public
+// @desc   Send password reset OTP
+// @route  POST /api/auth/forgot-password
+// @access Public
 export const sendPasswordResetOtp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -477,9 +475,9 @@ export const sendPasswordResetOtp = async (req, res) => {
     }
 };
 
-// @desc    Verify OTP and reset password
-// @route   POST /api/auth/reset-password
-// @access  Public
+// @desc   Verify OTP and reset password
+// @route  POST /api/auth/reset-password
+// @access Public
 export const resetPassword = async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body;

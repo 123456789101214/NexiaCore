@@ -24,18 +24,18 @@ import staffRoutes from './routes/staffRoutes.js';
 
 dotenv.config();
 
-// Fix DNS resolution issues (common in some Sri Lankan ISPs)
-// if (process.env.NODE_ENV !== 'production') {
-// dns.setServers(['8.8.8.8', '1.1.1.1']);
-// }
-
+// ── IPv4 FIRST: Must run before ANY DNS lookup (Railway/Render fix) ──
 dns.setDefaultResultOrder('ipv4first');
+
+// Fix DNS resolution issues (common in some Sri Lankan ISPs)
+if (process.env.NODE_ENV !== 'production') {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
-app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors({
@@ -49,16 +49,16 @@ app.use(cors({
 app.use(express.json());
 
 if (process.env.NODE_ENV === 'development') {
-app.use(morgan('dev'));
+    app.use(morgan('dev'));
 }
 
 // Health check
 app.get('/api/health', (req, res) => {
-res.status(200).json({
-status: "OK",
-uptime: process.uptime(),
-timestamp: new Date(),
-});
+    res.status(200).json({
+        status: "OK",
+        uptime: process.uptime(),
+        timestamp: new Date(),
+    });
 });
 
 // Routes
@@ -78,37 +78,37 @@ app.use('/api/staff', staffRoutes);
 
 // ❗ 404 handler (after routes)
 app.use((req, res) => {
-res.status(404).json({
-success: false,
-message: "API route not found",
-});
+    res.status(404).json({
+        success: false,
+        message: "API route not found",
+    });
 });
 
 // ❗ Error handler (LAST middleware)
 app.use((err, req, res, next) => {
-console.error(err.stack);
+    console.error(err.stack);
 
-res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-});
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || "Internal Server Error",
+    });
 });
 
 // ✅ Controlled startup
 const startServer = async () => {
-try {
-await connectDB();
+    try {
+        await connectDB();
 
-    app.listen(PORT, () => {
-        console.log(
-            `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold
-        );
-    });
+        app.listen(PORT, () => {
+            console.log(
+                `🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold
+            );
+        });
 
-} catch (error) {
-    console.error(`Server failed: ${error.message}`.red.bold);
-    process.exit(1);
-}
+    } catch (error) {
+        console.error(`Server failed: ${error.message}`.red.bold);
+        process.exit(1);
+    }
 };
 
 startServer();
