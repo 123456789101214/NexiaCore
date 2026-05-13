@@ -387,3 +387,139 @@ export const verifyOtp = async (req, res) => {
         res.status(500).json({ success: false, error: 'Failed to verify OTP' });
     }
 };
+
+// @desc    Send password reset OTP
+// @route   POST /api/auth/forgot-password
+// @access  Public
+export const sendPasswordResetOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) {
+            return res.status(400).json({ success: false, error: "Email is required." });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // 1. Verify user exists
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            return res.status(404).json({ success: false, error: "No account found with this email address." });
+        }
+
+        // 2. Invalidate previous unused OTPs for this email
+        await EmailVerification.updateMany(
+            { email: normalizedEmail, isUsed: false },
+            { $set: { isUsed: true } }
+        );
+
+        // 3. Generate 6-digit OTP
+        const otp = crypto.randomInt(100000, 1000000).toString();
+        
+        // 4. Save to database (Expires in 10 minutes)
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        await EmailVerification.create({
+            email: normalizedEmail,
+            otp,
+            expiresAt
+        });
+
+        // 5. Send Email
+        const transporter = await getTransporter();
+        const mailOptions = {
+            from: `"NexiaCore Security" <${process.env.EMAIL_USER}>`,
+            to: normalizedEmail,
+            subject: "NexiaCore — Password Reset Code",
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+                    <h2 style="color: #0f172a; text-align: center;">Password Reset Request</h2>
+                    <p style="color: #475569; font-size: 16px;">We received a request to reset the password for your NexiaCore account. Use the code below to securely verify your identity.</p>
+                    
+                    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0;">
+                        <span style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: #1e293b;">${otp}</span>
+                    </div>
+                    
+                    <p style="color: #64748b; font-size: 14px; text-align: center;"><strong>This code expires in 10 minutes.</strong></p>
+                    <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">
+                        If you didn't request this, your account is safe. You can safely ignore this email.
+                    </p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ success: true, message: "Password reset code sent to your email." });
+
+    } catch (error) {
+        console.error("Forgot Password Error:", error);
+        
+        // Cleanup OTP if email fails
+        if (req.body?.email) {
+            await EmailVerification.deleteMany({ email: req.body.email.toLowerCase().trim(), isUsed: false });
+        }
+        
+        res.status(500).json({ success: false, error: "Failed to process request. Please try again later." });
+    }
+};
+
+// @desc    Verify OTP and reset password
+// @route   POST /api/auth/reset-password
+// @access  Public
+export const resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ success: false, error: "Please provide all required fields." });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ success: false, error: "Password must be at least 6 characters." });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // 1. Find valid OTP record
+        const record = await EmailVerification.findOne({
+            email: normalizedEmail,
+            isUsed: false,
+            expiresAt: { $gt: new Date() }
+        }).sort({ createdAt: -1 });
+
+        if (!record) {
+            return res.status(400).json({ success: false, error: "OTP expired or not found. Please request a new code." });
+        }
+
+        // 2. Brute Force Protection
+        if (record.attempts >= 5) {
+            record.isUsed = true;
+            await record.save();
+            return res.status(400).json({ success: false, error: "Too many attempts. Request a new OTP." });
+        }
+
+        // 3. Verify OTP Match
+        if (record.otp !== otp.trim()) {
+            record.attempts += 1;
+            await record.save();
+            return res.status(400).json({ success: false, error: `Incorrect code. ${5 - record.attempts} attempt(s) remaining.` });
+        }
+
+        // 4. Mark OTP as used
+        record.isUsed = true;
+        await record.save();
+
+        // 5. Update User Password
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            return res.status(404).json({ success: false, error: "User account no longer exists." });
+        }
+
+        user.password = newPassword; 
+        await user.save(); // User.js pre-save hook will automatically hash this
+
+        res.status(200).json({ success: true, message: "Password reset successfully. Please log in." });
+
+    } catch (error) {
+        console.error("Reset Password Error:", error);
+        res.status(500).json({ success: false, error: "Failed to reset password. Please try again." });
+    }
+};

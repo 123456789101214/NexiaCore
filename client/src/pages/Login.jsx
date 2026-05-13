@@ -91,6 +91,15 @@ const Login = () => {
                                     required
                                     disabled={isLoading}
                                 />
+                                <div className="flex justify-end mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/forgot-password')}
+                                    className="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                    Forgot Password?
+                                </button>
+                            </div>
                             </div>
                         </div>
 

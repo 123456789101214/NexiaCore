@@ -19,6 +19,7 @@ import Customers from './pages/Customers';
 import Settings from './pages/Settings';
 import SaaSDashboard from './pages/SaaSDashboard';
 import StaffManagement from './pages/StaffManagement';
+import ForgotPassword from './pages/ForgotPassword';
 
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -48,6 +49,8 @@ function App() {
           PublicRoute would redirect logged-in users BEFORE Register.jsx renders.
         */}
         <Route path="/register" element={<Register />} />
+
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* ✅ PROTECTED ROUTES — login required */}
         <Route element={<ProtectedRoute />}>

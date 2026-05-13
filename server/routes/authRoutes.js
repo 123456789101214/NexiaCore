@@ -1,6 +1,6 @@
 import express from 'express';
 // 💡 අලුතින් හදපු sendOtp සහ verifyOtp මෙතනට Import කරගන්න
-import { register, login, registerStaff, sendOtp, verifyOtp } from '../controllers/authController.js'; 
+import { register, login, registerStaff, sendOtp, verifyOtp, sendPasswordResetOtp, resetPassword } from '../controllers/authController.js'; 
 import rateLimit from 'express-rate-limit';
 import { protect, authorize } from '../middleware/authMiddleware.js'; 
 
@@ -38,12 +38,15 @@ const otpLimiter = rateLimit({
 router.post('/send-otp', otpLimiter, sendOtp);
 router.post('/verify-otp', verifyOtp);
 
+
+
 // Register a new Shop and Owner (Root of Tenant)
 router.post('/register', register);
 
 // Authenticate User
 router.post('/login', loginLimiter, login);
-
+router.post('/forgot-password', otpLimiter, sendPasswordResetOtp);
+router.post('/reset-password', resetPassword);
 
 // -------------------------------------------------------------------------
 // 🔒 PROTECTED ROUTES (මේවා Token එකත් එක්ක වැඩ කරන්න ඕනේ)
