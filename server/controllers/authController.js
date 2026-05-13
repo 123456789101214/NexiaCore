@@ -446,7 +446,9 @@ export const sendPasswordResetOtp = async (req, res) => {
             `
         };
 
-        await transporter.sendMail(mailOptions);
+        transporter.sendMail(mailOptions).catch(err => {
+            console.error("Background Email Error:", err);
+        });
 
         res.status(200).json({ success: true, message: "Password reset code sent to your email." });
 
