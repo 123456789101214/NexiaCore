@@ -424,7 +424,7 @@ export const sendPasswordResetOtp = async (req, res) => {
         });
 
         // 5. Send Email
-        const transporter = await getTransporter();
+        const transporter = getTransporter();
         const mailOptions = {
             from: `"NexiaCore Security" <${process.env.EMAIL_USER}>`,
             to: normalizedEmail,
