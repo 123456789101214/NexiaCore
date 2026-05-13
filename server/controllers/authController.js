@@ -5,23 +5,27 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer'; // 💡 NEW: Email sending
 import crypto from 'crypto'; // 💡 NEW: Secure OTP generation
 import EmailVerification from '../models/EmailVerification.js'; // 💡 NEW: OTP Model
+import { createTransport } from 'nodemailer';
+import dns from 'dns';
 
 // ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER ━━━
-let transporter = null;
+// Force IPv4 DNS resolution — Railway does not support IPv6
+dns.setDefaultResultOrder('ipv4first');
 
 const getTransporter = () => {
-    if (!transporter) {
-        transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_APP_PASSWORD
-            }
-        });
-    }
-    return transporter;
+  return createTransport({
+    host: 'smtp.gmail.com',   // explicit host instead of service:'gmail'
+    port: 587,
+    secure: false,            // STARTTLS
+    family: 4,                // ← Force IPv4 socket (Node.js net option)
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_APP_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: true,
+    },
+  });
 };
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
