@@ -25,9 +25,11 @@ import staffRoutes from './routes/staffRoutes.js';
 dotenv.config();
 
 // Fix DNS resolution issues (common in some Sri Lankan ISPs)
-if (process.env.NODE_ENV !== 'production') {
-dns.setServers(['8.8.8.8', '1.1.1.1']);
-}
+// if (process.env.NODE_ENV !== 'production') {
+// dns.setServers(['8.8.8.8', '1.1.1.1']);
+// }
+
+dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
 const PORT = process.env.PORT || 5000;

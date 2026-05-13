@@ -7,23 +7,34 @@ import crypto from 'crypto'; // 💡 NEW: Secure OTP generation
 import EmailVerification from '../models/EmailVerification.js'; // 💡 NEW: OTP Model
 import { createTransport } from 'nodemailer';
 import dns from 'dns';
+import { Resolver } from 'dns/promises';
 
 // ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER ━━━
 // Force IPv4 DNS resolution — Railway does not support IPv6
 dns.setDefaultResultOrder('ipv4first');
 
+// @private — IPv4-only SMTP transporter for Railway/Render compatibility
+// Railway blocks IPv6 outbound. nodemailer's `family:4` is unreliable.
+// Custom lookup() guarantees IPv4 socket at the resolver level.
 const getTransporter = () => {
   return createTransport({
-    host: 'smtp.gmail.com',   // explicit host instead of service:'gmail'
+    host: 'smtp.gmail.com',
     port: 587,
-    secure: false,            // STARTTLS
-    family: 4,                // ← Force IPv4 socket (Node.js net option)
+    secure: false,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_APP_PASSWORD,
     },
     tls: {
       rejectUnauthorized: true,
+    },
+    // ── THE REAL FIX: custom DNS resolver that only returns IPv4 ──
+    lookup: (hostname, _options, callback) => {
+      const resolver = new Resolver();
+      resolver.resolve4(hostname, (err, addresses) => {
+        if (err) return callback(err);
+        callback(null, addresses[0], 4); // always IPv4
+      });
     },
   });
 };
