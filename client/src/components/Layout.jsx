@@ -66,7 +66,7 @@ const Layout = () => {
               <div className="bg-blue-600 p-2 rounded-lg text-white shadow-md shadow-blue-600/20">
                 <Store size={24} />
               </div>
-              <span className="font-black text-xl text-slate-800 tracking-tight">NexMart</span>
+              <span className="font-black text-xl text-slate-800 tracking-tight">NexiaCore</span>
             </div>
             <button className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg" onClick={() => setIsSidebarOpen(false)}>
               <X size={24} />
