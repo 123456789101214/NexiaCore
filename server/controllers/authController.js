@@ -391,6 +391,9 @@ export const verifyOtp = async (req, res) => {
 // @desc   Send password reset OTP
 // @route  POST /api/auth/forgot-password
 // @access Public
+// ━━━ REPLACE sendPasswordResetOtp function in authController.js ━━━
+// Only this function changes. All other functions remain untouched.
+
 export const sendPasswordResetOtp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -400,65 +403,99 @@ export const sendPasswordResetOtp = async (req, res) => {
 
         const normalizedEmail = email.toLowerCase().trim();
 
-        // 1. Verify user exists
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(normalizedEmail)) {
+            return res.status(400).json({ success: false, error: "Invalid email format." });
+        }
+
+        // 1. Verify user EXISTS
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
             return res.status(404).json({ success: false, error: "No account found with this email address." });
         }
 
-        // 2. Invalidate previous unused OTPs for this email
+        // 2. Rate limit: 60-second cooldown (same as sendOtp)
+        const recentOtp = await EmailVerification.findOne({
+            email: normalizedEmail,
+            isUsed: false,
+            expiresAt: { $gt: new Date() },
+            createdAt: { $gt: new Date(Date.now() - 60000) }
+        });
+        if (recentOtp) {
+            return res.status(429).json({
+                success: false,
+                error: "Please wait 60 seconds before requesting a new code."
+            });
+        }
+
+        // 3. Invalidate all previous unused OTPs for this email
         await EmailVerification.updateMany(
             { email: normalizedEmail, isUsed: false },
             { $set: { isUsed: true } }
         );
 
-        // 3. Generate 6-digit OTP
-        const otp = crypto.randomInt(100000, 1000000).toString();
-        
-        // 4. Save to database (Expires in 10 minutes)
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        await EmailVerification.create({
+        // 4. FIX: Generate 6-digit OTP — range must be 100000 to 999999 (NOT 1000000)
+        // crypto.randomInt(100000, 1000000) can produce 1000000 = 7 digits — WRONG
+        // crypto.randomInt(100000, 999999) → always exactly 6 digits — CORRECT
+        const otp = crypto.randomInt(100000, 999999).toString();
+
+        // 5. Save OTP to DB (expires in 10 minutes)
+        const verificationRecord = await EmailVerification.create({
             email: normalizedEmail,
             otp,
-            expiresAt
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000)
         });
 
-        // 5. Send Email
+        // 6. Send email — use getTransporter() NOT await getTransporter()
+        // getTransporter() is a sync singleton function, not async
         const transporter = getTransporter();
-        const mailOptions = {
-            from: `"NexiaCore Security" <${process.env.EMAIL_USER}>`,
-            to: normalizedEmail,
-            subject: "NexiaCore — Password Reset Code",
-            html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
-                    <h2 style="color: #0f172a; text-align: center;">Password Reset Request</h2>
-                    <p style="color: #475569; font-size: 16px;">We received a request to reset the password for your NexiaCore account. Use the code below to securely verify your identity.</p>
-                    
-                    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0;">
-                        <span style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: #1e293b;">${otp}</span>
+
+        try {
+            await transporter.sendMail({
+                from: `"NexiaCore Security" <${process.env.EMAIL_USER}>`,
+                to: normalizedEmail,
+                subject: "NexiaCore — Password Reset Code",
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+                        <h2 style="color: #0f172a; text-align: center;">Password Reset Request</h2>
+                        <p style="color: #475569; font-size: 16px; text-align: center;">
+                            We received a request to reset the password for your NexiaCore account.
+                            Use the code below to securely verify your identity.
+                        </p>
+                        <div style="background-color: #f8fafc; padding: 24px; border-radius: 8px; text-align: center; margin: 30px 0;">
+                            <span style="font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #2563eb;">${otp}</span>
+                        </div>
+                        <p style="color: #ef4444; font-size: 14px; font-weight: bold; text-align: center;">
+                            This code expires in 10 minutes.
+                        </p>
+                        <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">
+                            If you didn't request this, your account is safe. You can safely ignore this email.
+                        </p>
                     </div>
-                    
-                    <p style="color: #64748b; font-size: 14px; text-align: center;"><strong>This code expires in 10 minutes.</strong></p>
-                    <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">
-                        If you didn't request this, your account is safe. You can safely ignore this email.
-                    </p>
-                </div>
-            `
-        };
+                `
+            });
+        } catch (emailError) {
+            // Email failed — clean up the OTP record so user can retry
+            await EmailVerification.findByIdAndDelete(verificationRecord._id);
+            console.error('Password Reset Email Error:', emailError);
+            return res.status(500).json({
+                success: false,
+                error: "Failed to send reset email. Please try again."
+            });
+        }
 
-        await transporter.sendMail(mailOptions);
-
-        res.status(200).json({ success: true, message: "Password reset code sent to your email." });
+        res.status(200).json({
+            success: true,
+            message: "Password reset code sent to your email."
+        });
 
     } catch (error) {
         console.error("Forgot Password Error:", error);
-        
-        // Cleanup OTP if email fails
-        if (req.body?.email) {
-            await EmailVerification.deleteMany({ email: req.body.email.toLowerCase().trim(), isUsed: false });
-        }
-        
-        res.status(500).json({ success: false, error: "Failed to process request. Please try again later." });
+        res.status(500).json({
+            success: false,
+            error: "Failed to process request. Please try again later."
+        });
     }
 };
 
