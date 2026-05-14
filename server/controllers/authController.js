@@ -10,17 +10,27 @@ import { Resolver } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lo
 
 // ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER & IPv4 CUSTOM LOOKUP ━━━
 let transporter = null;
-
 const getTransporter = () => {
     if (!transporter) {
         transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
-            port: 465,        // ← 587 instead of 465
-            secure: true,     // ← true for 465, false for 587
-            family: 4,        // ← FORCE IPv4 — fixes ENETUNREACH
+            port: 465,
+            secure: true,
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_APP_PASSWORD
+            },
+            // 🚀 THE ULTIMATE FIX: Bypass Node.js internal DNS and FORCE IPv4
+            lookup: (hostname, options, callback) => {
+                const resolver = new Resolver();
+                resolver.resolve4(hostname)
+                    .then(addresses => {
+                        // පළවෙනි IPv4 ඇඩ්‍රස් එක විතරක් අරන් Nodemailer එකට දෙනවා
+                        callback(null, addresses[0], 4);
+                    })
+                    .catch(err => {
+                        callback(err);
+                    });
             }
         });
     }
