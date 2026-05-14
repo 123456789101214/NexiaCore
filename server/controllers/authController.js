@@ -6,35 +6,32 @@ import nodemailer from 'nodemailer'; // 💡 NEW: Email sending
 import crypto from 'crypto'; // 💡 NEW: Secure OTP generation
 import EmailVerification from '../models/EmailVerification.js'; // 💡 NEW: OTP Model
 import dns from 'dns'; // 💡 FIX: DNS for custom lookup
-import { Resolver } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lookup
+import { resolve4 } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lookup
 
 // ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER & IPv4 CUSTOM LOOKUP ━━━
-let transporter = null;
-const getTransporter = () => {
-    if (!transporter) {
-        transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_APP_PASSWORD
-            },
-            // 🚀 THE ULTIMATE FIX: Bypass Node.js internal DNS and FORCE IPv4
-            lookup: (hostname, options, callback) => {
-                const resolver = new Resolver();
-                resolver.resolve4(hostname)
-                    .then(addresses => {
-                        // පළවෙනි IPv4 ඇඩ්‍රස් එක විතරක් අරන් Nodemailer එකට දෙනවා
-                        callback(null, addresses[0], 4);
-                    })
-                    .catch(err => {
-                        callback(err);
-                    });
-            }
-        });
-    }
-    return transporter;
+// let transporter = null;
+// ━━━ 🛡️ THE ULTIMATE SAAS FIX: OS-Level DNS Bypass ━━━
+const getTransporter = async () => {
+    // 1. Direct UDP query to get Gmail's exact IPv4 address (Bypasses Railway OS limits)
+    const addresses = await resolve4('smtp.gmail.com');
+    const ipv4Host = addresses[0]; // e.g. 142.250.193.109
+
+    // 2. Connect directly to the IP address
+    return nodemailer.createTransport({
+        host: ipv4Host, 
+        port: 465,
+        secure: true,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_APP_PASSWORD
+        },
+        tls: {
+            // CRITICAL: We must tell Google we are looking for 'smtp.gmail.com' 
+            // even though we are connecting via an IP address. Otherwise, SSL fails.
+            servername: 'smtp.gmail.com',
+            rejectUnauthorized: true
+        }
+    });
 };
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
