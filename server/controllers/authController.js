@@ -15,25 +15,12 @@ const getTransporter = () => {
     if (!transporter) {
         transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
-            port: 587,
-            secure: false,
+            port: 465,        // ← 587 instead of 465
+            secure: true,     // ← true for 465, false for 587
+            family: 4,        // ← FORCE IPv4 — fixes ENETUNREACH
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_APP_PASSWORD
-            },
-            tls: {
-                rejectUnauthorized: true,
-            },
-            // ── THE REAL FIX: custom DNS resolver that only returns IPv4 ──
-            lookup: (hostname, _options, callback) => {
-                const resolver = new Resolver();
-                resolver.resolve4(hostname)
-                    .then(addresses => {
-                        callback(null, addresses[0], 4);
-                    })
-                    .catch(err => {
-                        callback(err);
-                    });
             }
         });
     }
