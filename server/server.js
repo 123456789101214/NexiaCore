@@ -25,7 +25,7 @@ import staffRoutes from './routes/staffRoutes.js';
 dotenv.config();
 
 // ── IPv4 FIRST: Must run before ANY DNS lookup (Railway/Render fix) ──
-dns.setDefaultResultOrder('ipv4first');
+// dns.setDefaultResultOrder('ipv4first');
 
 // Fix DNS resolution issues (common in some Sri Lankan ISPs)
 if (process.env.NODE_ENV !== 'production') {

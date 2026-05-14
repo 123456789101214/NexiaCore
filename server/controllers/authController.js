@@ -12,13 +12,23 @@ import { resolve4 } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lo
 // let transporter = null;
 // ━━━ 🛡️ THE ULTIMATE SAAS FIX: OS-Level DNS Bypass ━━━
 const getTransporter = async () => {
-    // 1. Direct UDP query to get Gmail's exact IPv4 address (Bypasses Railway OS limits)
-    const addresses = await resolve4('smtp.gmail.com');
-    const ipv4Host = addresses[0]; // e.g. 142.250.193.109
+    let smtpHost = 'smtp.gmail.com'; // Default (සාමාන්‍ය) විදිහ
 
-    // 2. Connect directly to the IP address
+    try {
+        // 🚀 THE SAAS BYPASS: Railway එකේ IPv6 Block එක මඟහරින්න
+        const addresses = await resolve4('smtp.gmail.com');
+        if (addresses && addresses.length > 0) {
+            smtpHost = addresses[0]; // හරියටම IPv4 ඇඩ්‍රස් එක අරන් දෙනවා
+        }
+    } catch (dnsError) {
+        // 💻 LOCAL FALLBACK: ලෝකල් ඉද්දි SLT/Dialog වලින් DNS Block කරොත්, 
+        // Crash වෙන්නේ නැතුව පරණ විදිහටම යවනවා.
+        console.log("DNS bypass skipped (running local), using default host.");
+    }
+
+    // Connect to Gmail
     return nodemailer.createTransport({
-        host: ipv4Host, 
+        host: smtpHost,
         port: 465,
         secure: true,
         auth: {
@@ -26,9 +36,7 @@ const getTransporter = async () => {
             pass: process.env.EMAIL_APP_PASSWORD
         },
         tls: {
-            // CRITICAL: We must tell Google we are looking for 'smtp.gmail.com' 
-            // even though we are connecting via an IP address. Otherwise, SSL fails.
-            servername: 'smtp.gmail.com',
+            servername: 'smtp.gmail.com', // IP එකෙන් ගියත් Google එකට කියනවා අපි යන්නේ smtp.gmail.com වලට කියලා
             rejectUnauthorized: true
         }
     });
@@ -260,9 +268,9 @@ export const registerStaff = async (req, res) => {
 
 // ─── NEW: OTP EMAIL VERIFICATION SYSTEM ───────────────────────────────────
 
-// @desc   Send OTP to email
-// @route  POST /api/auth/send-otp
-// @access Public
+// @desc    Send OTP to email
+// @route   POST /api/auth/send-otp
+// @access  Public
 export const sendOtp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -296,7 +304,7 @@ export const sendOtp = async (req, res) => {
             { $set: { isUsed: true } }
         );
 
-        const otp = crypto.randomInt(100000, 999999).toString();
+        const otp = crypto.randomInt(100000, 1000000).toString();
 
         await EmailVerification.create({
             email: normalizedEmail,
@@ -321,7 +329,7 @@ export const sendOtp = async (req, res) => {
             `
         };
 
-        const mailer = getTransporter();
+        const mailer = await getTransporter(); 
         await mailer.sendMail(mailOptions);
         
         res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
@@ -395,12 +403,9 @@ export const verifyOtp = async (req, res) => {
     }
 };
 
-// @desc   Send password reset OTP
-// @route  POST /api/auth/forgot-password
-// @access Public
-// ━━━ REPLACE sendPasswordResetOtp function in authController.js ━━━
-// Only this function changes. All other functions remain untouched.
-
+// @desc    Send password reset OTP
+// @route   POST /api/auth/forgot-password
+// @access  Public
 export const sendPasswordResetOtp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -422,13 +427,14 @@ export const sendPasswordResetOtp = async (req, res) => {
             return res.status(404).json({ success: false, error: "No account found with this email address." });
         }
 
-        // 2. Rate limit: 60-second cooldown (same as sendOtp)
+        // 2. Rate limit: 60-second cooldown
         const recentOtp = await EmailVerification.findOne({
             email: normalizedEmail,
             isUsed: false,
             expiresAt: { $gt: new Date() },
             createdAt: { $gt: new Date(Date.now() - 60000) }
         });
+        
         if (recentOtp) {
             return res.status(429).json({
                 success: false,
@@ -442,10 +448,8 @@ export const sendPasswordResetOtp = async (req, res) => {
             { $set: { isUsed: true } }
         );
 
-        // 4. FIX: Generate 6-digit OTP — range must be 100000 to 999999 (NOT 1000000)
-        // crypto.randomInt(100000, 1000000) can produce 1000000 = 7 digits — WRONG
-        // crypto.randomInt(100000, 999999) → always exactly 6 digits — CORRECT
-        const otp = crypto.randomInt(100000, 999999).toString();
+        // 4. Generate 6-digit OTP (1000000 is exclusive, so max is 999999)
+        const otp = crypto.randomInt(100000, 1000000).toString();
 
         // 5. Save OTP to DB (expires in 10 minutes)
         const verificationRecord = await EmailVerification.create({
@@ -454,9 +458,8 @@ export const sendPasswordResetOtp = async (req, res) => {
             expiresAt: new Date(Date.now() + 10 * 60 * 1000)
         });
 
-        // 6. Send email — use getTransporter() NOT await getTransporter()
-        // getTransporter() is a sync singleton function, not async
-        const transporter = getTransporter();
+        // 6. Send email — MUST use await because of the DNS Bypass
+        const transporter = await getTransporter();
 
         try {
             await transporter.sendMail({
@@ -482,6 +485,9 @@ export const sendPasswordResetOtp = async (req, res) => {
                     </div>
                 `
             });
+            
+            res.status(200).json({ success: true, message: "Password reset code sent to your email." });
+
         } catch (emailError) {
             // Email failed — clean up the OTP record so user can retry
             await EmailVerification.findByIdAndDelete(verificationRecord._id);
@@ -491,11 +497,6 @@ export const sendPasswordResetOtp = async (req, res) => {
                 error: "Failed to send reset email. Please try again."
             });
         }
-
-        res.status(200).json({
-            success: true,
-            message: "Password reset code sent to your email."
-        });
 
     } catch (error) {
         console.error("Forgot Password Error:", error);
