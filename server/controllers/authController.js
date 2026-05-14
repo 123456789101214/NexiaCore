@@ -11,33 +11,22 @@ import { resolve4 } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lo
 // ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER & IPv4 CUSTOM LOOKUP ━━━
 // let transporter = null;
 // ━━━ 🛡️ THE ULTIMATE SAAS FIX: OS-Level DNS Bypass ━━━
-const getTransporter = async () => {
-    let smtpHost = 'smtp.gmail.com'; // Default (සාමාන්‍ය) විදිහ
-
-    try {
-        // 🚀 THE SAAS BYPASS: Railway එකේ IPv6 Block එක මඟහරින්න
-        const addresses = await resolve4('smtp.gmail.com');
-        if (addresses && addresses.length > 0) {
-            smtpHost = addresses[0]; // හරියටම IPv4 ඇඩ්‍රස් එක අරන් දෙනවා
-        }
-    } catch (dnsError) {
-        // 💻 LOCAL FALLBACK: ලෝකල් ඉද්දි SLT/Dialog වලින් DNS Block කරොත්, 
-        // Crash වෙන්නේ නැතුව පරණ විදිහටම යවනවා.
-        console.log("DNS bypass skipped (running local), using default host.");
-    }
-
-    // Connect to Gmail
+// ━━━ 🛡️ THE FINAL PRODUCTION FIX: Native OS IPv4 Binding ━━━
+const getTransporter = () => {
     return nodemailer.createTransport({
-        host: smtpHost,
-        port: 465,
-        secure: true,
+        service: 'gmail', // Google එකේ ඔක්කොම Settings (port/host) මේකෙන් ඔටෝ හැදෙනවා
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_APP_PASSWORD
         },
         tls: {
-            servername: 'smtp.gmail.com', // IP එකෙන් ගියත් Google එකට කියනවා අපි යන්නේ smtp.gmail.com වලට කියලා
-            rejectUnauthorized: true
+            rejectUnauthorized: false // Cloud Environments වල එන SSL Certificates අවුල් මඟහරිනවා
+        },
+        // 🚀 Railway IPv6 අවුල 100% ක් මඟහරින්න OS Level එකෙන්ම IPv4 Force කරනවා!
+        lookup: (hostname, options, callback) => {
+            dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+                callback(err, address, family);
+            });
         }
     });
 };
