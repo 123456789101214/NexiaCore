@@ -6,8 +6,6 @@ import crypto from 'crypto';
 import EmailVerification from '../models/EmailVerification.js'; 
 import { Resend } from 'resend'; 
 
-// ━━━ 🛡️ NEW: Resend API Initialization ━━━
-// const resend = new Resend(process.env.RESEND_API_KEY);
 
 const generateToken = (id, role, shopId) => {
     return jwt.sign({ id, role, shopId }, process.env.JWT_SECRET, { expiresIn: '30d' });
