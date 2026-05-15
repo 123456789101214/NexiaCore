@@ -2,35 +2,12 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Shop from '../models/Shop.js';
 import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer'; // 💡 NEW: Email sending
-import crypto from 'crypto'; // 💡 NEW: Secure OTP generation
-import EmailVerification from '../models/EmailVerification.js'; // 💡 NEW: OTP Model
-import dns from 'dns'; // 💡 FIX: DNS for custom lookup
-import { resolve4 } from 'dns/promises'; // 💡 FIX: DNS Promises for custom lookup
+import crypto from 'crypto'; 
+import EmailVerification from '../models/EmailVerification.js'; 
+import { Resend } from 'resend'; 
 
-// ━━━ 🛡️ PRO FIX: LAZY LOADED TRANSPORTER & IPv4 CUSTOM LOOKUP ━━━
-// let transporter = null;
-// ━━━ 🛡️ THE ULTIMATE SAAS FIX: OS-Level DNS Bypass ━━━
-// ━━━ 🛡️ THE FINAL PRODUCTION FIX: Native OS IPv4 Binding ━━━
-const getTransporter = () => {
-    return nodemailer.createTransport({
-        service: 'gmail', // Google එකේ ඔක්කොම Settings (port/host) මේකෙන් ඔටෝ හැදෙනවා
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_APP_PASSWORD
-        },
-        tls: {
-            rejectUnauthorized: false // Cloud Environments වල එන SSL Certificates අවුල් මඟහරිනවා
-        },
-        // 🚀 Railway IPv6 අවුල 100% ක් මඟහරින්න OS Level එකෙන්ම IPv4 Force කරනවා!
-        lookup: (hostname, options, callback) => {
-            dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-                callback(err, address, family);
-            });
-        }
-    });
-};
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ━━━ 🛡️ NEW: Resend API Initialization ━━━
+// const resend = new Resend(process.env.RESEND_API_KEY);
 
 const generateToken = (id, role, shopId) => {
     return jwt.sign({ id, role, shopId }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -257,9 +234,9 @@ export const registerStaff = async (req, res) => {
 
 // ─── NEW: OTP EMAIL VERIFICATION SYSTEM ───────────────────────────────────
 
-// @desc    Send OTP to email
-// @route   POST /api/auth/send-otp
-// @access  Public
+// @desc   Send OTP to email
+// @route  POST /api/auth/send-otp
+// @access Public
 export const sendOtp = async (req, res) => {
     try {
         const { email } = req.body;
@@ -301,8 +278,10 @@ export const sendOtp = async (req, res) => {
             expiresAt: new Date(Date.now() + 10 * 60 * 1000) 
         });
 
-        const mailOptions = {
-            from: `"Smart POS SaaS" <${process.env.EMAIL_USER}>`,
+        // ━━━ 🛡️ RESEND EMAIL SENDING ━━━
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { error: emailError } = await resend.emails.send({
+            from: process.env.EMAIL_FROM,
             to: normalizedEmail,
             subject: 'Your Smart POS Verification Code',
             html: `
@@ -316,10 +295,13 @@ export const sendOtp = async (req, res) => {
                     <p style="color: #94a3b8; text-align: center; font-size: 12px; margin-top: 30px;">If you didn't request this, please ignore this email.</p>
                 </div>
             `
-        };
+        });
 
-        const mailer = await getTransporter(); 
-        await mailer.sendMail(mailOptions);
+        if (emailError) {
+            console.error('Resend API Error:', emailError);
+            await EmailVerification.deleteMany({ email: normalizedEmail, isUsed: false });
+            return res.status(500).json({ success: false, error: 'Failed to send verification email. Please try again.' });
+        }
         
         res.status(200).json({ success: true, message: 'Verification code sent to your email.' });
 
@@ -449,15 +431,6 @@ export const sendPasswordResetOtp = async (req, res) => {
       expiresAt,
     });
 
-    // Send email
-    let transporter;
-    try {
-      transporter = await getTransporter();
-    } catch {
-      await EmailVerification.findByIdAndDelete(otpRecord._id);
-      return res.status(500).json({ success: false, message: 'Email service unavailable. Try again later.' });
-    }
-
     const htmlBody = `
       <!DOCTYPE html>
       <html lang="en">
@@ -466,21 +439,18 @@ export const sendPasswordResetOtp = async (req, res) => {
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:40px 0;">
           <tr><td align="center">
             <table width="560" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:16px;overflow:hidden;box-shadow:0 25px 50px rgba(0,0,0,0.5);">
-              <!-- Header -->
               <tr>
                 <td style="background:linear-gradient(135deg,#1d4ed8 0%,#1e40af 100%);padding:36px 40px;text-align:center;">
                   <p style="margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#93c5fd;">NexiaCore Smart POS</p>
                   <h1 style="margin:0;font-size:26px;font-weight:700;color:#ffffff;">Password Reset Request</h1>
                 </td>
               </tr>
-              <!-- Body -->
               <tr>
                 <td style="padding:40px 40px 32px;">
                   <p style="margin:0 0 24px;font-size:15px;color:#94a3b8;line-height:1.6;">
                     Hi <strong style="color:#e2e8f0;">${user.name || 'there'}</strong>, we received a request to reset the password for your NexiaCore account.
                   </p>
 
-                  <!-- OTP box -->
                   <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:28px;text-align:center;margin-bottom:28px;">
                     <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#64748b;">Your Reset Code</p>
                     <p style="margin:0;font-size:48px;font-weight:800;letter-spacing:10px;color:#3b82f6;font-family:'Courier New',monospace;">${otp}</p>
@@ -497,7 +467,6 @@ export const sendPasswordResetOtp = async (req, res) => {
                   </p>
                 </td>
               </tr>
-              <!-- Footer -->
               <tr>
                 <td style="padding:20px 40px 32px;border-top:1px solid #1e293b;text-align:center;">
                   <p style="margin:0;font-size:12px;color:#334155;">
@@ -512,14 +481,17 @@ export const sendPasswordResetOtp = async (req, res) => {
       </html>
     `;
 
-    try {
-      await transporter.sendMail({
-        from: `"NexiaCore POS" <${process.env.EMAIL_USER}>`,
-        to: normalizedEmail,
-        subject: 'NexiaCore — Password Reset Code',
-        html: htmlBody,
-      });
-    } catch {
+    // ━━━ 🛡️ RESEND EMAIL SENDING ━━━
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { error: emailError } = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: normalizedEmail,
+      subject: 'NexiaCore — Password Reset Code',
+      html: htmlBody,
+    });
+
+    if (emailError) {
+      console.error('Password Reset Email Error:', emailError);
       await EmailVerification.findByIdAndDelete(otpRecord._id);
       return res.status(500).json({
         success: false,
