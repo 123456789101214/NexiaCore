@@ -1,22 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import API from '../services/api';
-import useAuthStore from '../store/authStore'; // 💡 PRO FIX: Role-Based Security
-import { Package, Plus, Search, Edit, Trash2, Barcode, Download, Loader2 } from 'lucide-react';
+import useAuthStore from '../store/authStore';
+import usePlanStore from '../store/planStore'; // 🔥 Store එක ගත්තා
+import { Package, Plus, Search, Edit, Trash2, Barcode, Download, Loader2, Lock } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import ProductFormDrawer from '../components/ProductFormDrawer';
+import { useNavigate } from 'react-router-dom';
 
 const Inventory = () => {
-    // 💡 PRO FIX: Security - Role එක ගන්නවා
     const user = useAuthStore((state) => state.user);
     const isManager = user?.role === 'admin' || user?.role === 'owner';
 
+    const navigate = useNavigate();
+    
+    // 💡 STRICT REACTIVITY: මේකෙන් කෙලින්ම feature එකේ true/false අගය ගන්නවා. 
+    // Data ආපු ගමන් UI එක ඉබේම Update වෙනවා!
+    const hasBulkUpload = usePlanStore((state) => state.features?.bulkUpload);
+
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isUploading, setIsUploading] = useState(false); // Excel Upload Loading
+    const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Drawer States
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
 
@@ -48,9 +54,8 @@ const Inventory = () => {
         setIsDrawerOpen(true);
     };
 
-    // 🛡️ Security Guarded Actions
     const handleDelete = async (id) => {
-        if (!isManager) return; // Security Check
+        if (!isManager) return;
 
         Swal.fire({
             title: 'Are you sure?',
@@ -103,39 +108,66 @@ const Inventory = () => {
         });
     };
 
-    const handleExcelUpload = (e) => {
-        if (!isManager) return;
-        
-        const file = e.target.files[0];
-        if (!file) return;
+const handleExcelUpload = (e) => {
+    if (!isManager) return;
+    if (!hasBulkUpload) return; // 🛡️ Extra Security Check
 
-        setIsUploading(true); // 💡 Start loading spinner
+    const file = e.target.files[0];
+    if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            try {
-                const data = new Uint8Array(event.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const sheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(sheet);
+    setIsUploading(true);
 
-                const res = await API.post('/products/bulk-upload', { products: jsonData });
-                if (res.data.success) {
-                    Swal.fire('Success!', res.data.message, 'success');
-                    fetchProducts(); 
-                }
-            } catch (error) {
-                Swal.fire('Error', 'Excel upload failed. Check your format.', 'error');
-            } finally {
-                setIsUploading(false); // 💡 Stop loading spinner
-                e.target.value = ''; // Reset input
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+        try {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
+
+            const res = await API.post('/products/bulk-upload', { products: jsonData });
+            if (res.data.success) {
+                Swal.fire('Success!', res.data.message, 'success');
+                fetchProducts(); 
             }
-        };
-        reader.readAsArrayBuffer(file);
+        } catch (error) {
+            console.error("Excel upload error:", error);
+            
+            // 👑 ARCHITECT LEVEL ALERT: බල්ක් අප්ලෝඩ් එකේදී ලිමිට් පැන්නොත් වදින ඇලර්ට් එක
+            if (error.response?.status === 403) {
+                Swal.fire({
+                    title: '👑 Plan Limit Exceeded',
+                    text: error.response?.data?.error || 'Your excel import contains items that exceed your remaining product limit.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '🚀 Upgrade to Pro',
+                    cancelButtonText: 'Close',
+                    confirmButtonColor: '#2563eb', // ලස්සන බ්ලූ කලර් බටන් එක
+                    cancelButtonColor: '#64748b',
+                    customClass: { popup: 'rounded-[2rem] shadow-2xl p-6' }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        navigate('/settings'); // කෙලින්ම අප්ග්‍රේඩ් පේජ් එකට යවනවා
+                    }
+                });
+            } else {
+                // වෙනත් සාමාන්‍ය එක්සෙල් ෆෝමැට් අවුලක් ආවොත් විතරක් මේක පෙන්වනවා
+                Swal.fire({
+                    title: 'Upload Failed',
+                    text: 'Excel upload failed. Please check your sheet format.',
+                    icon: 'error',
+                    customClass: { popup: 'rounded-[2rem]' }
+                });
+            }
+        } finally {
+            setIsUploading(false);
+            e.target.value = '';
+        }
     };
+    reader.readAsArrayBuffer(file);
+};
 
-    // 💡 PRO FIX: Performance - useMemo prevents O(N) recalculations on every render
     const filteredProducts = useMemo(() => {
         const search = searchTerm.toLowerCase();
         return products.filter(p => {
@@ -156,14 +188,12 @@ const Inventory = () => {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-slate-800 tracking-tight">Inventory</h2>
                     <p className="text-slate-500 text-sm">Stock tracking and product management</p>
                 </div>
 
-                {/* 🛡️ PRO FIX: Only Managers/Owners can see these actions */}
                 {isManager && (
                     <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -173,12 +203,41 @@ const Inventory = () => {
                             <Plus size={20} /> Add Product
                         </button>
                         
-                        <label className={`flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-3 rounded-2xl font-bold text-sm cursor-pointer hover:bg-emerald-100 transition-all ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        {/* 🛑 PRO FIX: Reactivity Fixed Bulk Upload Label */}
+                        <label 
+                            onClick={(e) => {
+                                if (!hasBulkUpload) {
+                                    e.preventDefault(); 
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Pro Feature Locked',
+                                        text: 'Upgrade to Pro or Enterprise to unlock Excel Bulk Import.',
+                                        confirmButtonText: 'Upgrade to Pro',
+                                        confirmButtonColor: '#0f172a',
+                                        showCancelButton: true,
+                                        cancelButtonText: 'Close',
+                                        customClass: { popup: 'rounded-[2rem]' }
+                                    }).then((result) => {
+                                        if (result.isConfirmed) navigate('/settings'); 
+                                    });
+                                }
+                            }}
+                            className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
+                                !hasBulkUpload 
+                                    ? 'bg-slate-100 text-slate-400 opacity-80' 
+                                    : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 shadow-sm'
+                            }`}
+                        >
                             {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />} 
                             {isUploading ? 'Importing...' : 'Import Excel'}
-                            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} disabled={isUploading} />
+                            
+                            {!hasBulkUpload && <Lock size={14} className="text-amber-500 ml-1" />}
+                            
+                            {hasBulkUpload && (
+                                <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} disabled={isUploading} />
+                            )}
                         </label>
-                        
+
                         <button
                             onClick={handleBulkDelete}
                             className="flex items-center gap-2 bg-red-50 text-red-500 px-4 py-3 rounded-2xl font-bold text-sm hover:bg-red-100 transition-all active:scale-95"
@@ -189,7 +248,6 @@ const Inventory = () => {
                 )}
             </div>
 
-            {/* Search */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
                 <div className="relative">
                     <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
@@ -203,7 +261,6 @@ const Inventory = () => {
                 </div>
             </div>
 
-            {/* Product Table */}
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -211,14 +268,9 @@ const Inventory = () => {
                             <tr>
                                 <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Product Details</th>
                                 <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Category</th>
-                                
-                                {/* 🛡️ PRO FIX: Hide Buying Price from Cashiers */}
                                 {isManager && <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Buying</th>}
-                                
                                 <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Selling</th>
                                 <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest">Stock</th>
-                                
-                                {/* 🛡️ PRO FIX: Hide Actions from Cashiers */}
                                 {isManager && <th className="px-6 py-5 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>}
                             </tr>
                         </thead>
@@ -229,12 +281,7 @@ const Inventory = () => {
                                         <div className="flex items-center gap-3">
                                             <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center overflow-hidden shadow-sm group-hover:border-blue-200 transition-all">
                                                 {product.image ? (
-                                                    <img
-                                                        src={product.image}
-                                                        alt={product.name}
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => { e.target.src = 'https://placehold.co/150?text=No+Image' }}
-                                                    />
+                                                    <img src={product.image} alt={product.name} className="w-full h-full object-cover" onError={(e) => { e.target.src = 'https://placehold.co/150?text=No+Image' }} />
                                                 ) : (
                                                     <Package size={22} className="text-slate-300" />
                                                 )}
@@ -252,10 +299,7 @@ const Inventory = () => {
                                             {product.category}
                                         </span>
                                     </td>
-                                    
-                                    {/* 🛡️ PRO FIX: Hide Buying Price from Cashiers */}
                                     {isManager && <td className="px-6 py-4 font-bold text-blue-600/70">Rs. {product.buyingPrice?.toLocaleString()}</td>}
-                                    
                                     <td className="px-6 py-4 font-black text-slate-800">Rs. {product.price.toLocaleString()}</td>
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-1">
@@ -263,15 +307,10 @@ const Inventory = () => {
                                                 {product.stock} {product.unit}
                                             </span>
                                             <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full rounded-full ${product.stock <= product.minStockLevel ? 'bg-red-500' : 'bg-emerald-500'}`}
-                                                    style={{ width: `${Math.min((product.stock / 50) * 100, 100)}%` }}
-                                                />
+                                                <div className={`h-full rounded-full ${product.stock <= product.minStockLevel ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min((product.stock / 50) * 100, 100)}%` }} />
                                             </div>
                                         </div>
                                     </td>
-                                    
-                                    {/* 🛡️ PRO FIX: Hide Actions from Cashiers */}
                                     {isManager && (
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex justify-end gap-1">
@@ -288,16 +327,12 @@ const Inventory = () => {
                             ))}
                         </tbody>
                     </table>
-                    
                     {filteredProducts.length === 0 && (
-                         <div className="p-8 text-center text-slate-400 font-medium">
-                             No products found.
-                         </div>
+                         <div className="p-8 text-center text-slate-400 font-medium">No products found.</div>
                     )}
                 </div>
             </div>
 
-            {/* --- SLIDE-OVER DRAWER --- */}
             {isManager && (
                 <ProductFormDrawer
                     isOpen={isDrawerOpen}

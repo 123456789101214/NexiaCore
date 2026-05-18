@@ -1,9 +1,12 @@
 // server/controllers/subscriptionController.js
 import Shop from '../models/Shop.js';
 import ShopPayment from '../models/ShopPayment.js';
+import { getEffectivePlan, PLAN_FEATURES } from '../middleware/planMiddleware.js';
 
 export const getMySubscription = async (req, res) => {
   try {
+    const effectivePlan = await getEffectivePlan(req.user.shopId);
+    const features = PLAN_FEATURES[effectivePlan];
     const shop = await Shop.findById(req.user.shopId);
     if (!shop) return res.status(404).json({ success: false, error: 'Shop not found' });
 
@@ -17,7 +20,7 @@ export const getMySubscription = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
 
-    res.status(200).json({ success: true, data: { shop, trialDaysRemaining, paymentHistory } });
+    res.status(200).json({ success: true, data: { shop, trialDaysRemaining, paymentHistory, features, effectivePlan, trialDaysRemaining } });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch subscription data' });
   }

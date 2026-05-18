@@ -6,7 +6,7 @@ import SmartAlerts from '../components/SmartAlerts';
 import useAuthStore from '../store/authStore'; // 💡 Role එක ගන්න Store එක ගෙනාවා
 import TrialBanner from '../components/TrialBanner';
 import SalesChart from '../components/SalesChart';
-
+import FeatureGate from '../components/FeatureGate';
 const Dashboard = () => {
   const user = useAuthStore((state) => state.user); // 💡 යූසර්ගේ ඩේටා
   const isManagerOrOwner = user?.role === 'admin' || user?.role === 'owner'; // 💡 Security Check
@@ -100,7 +100,9 @@ const Dashboard = () => {
         {/* 📈 1. Sales Chart Section (Upgraded to fill space natively) */}
         {isManagerOrOwner && (
             <div className="lg:col-span-2">
+              <FeatureGate feature="analytics" featureNameTitle="Advanced Analytics">
                 <SalesChart />
+                </FeatureGate>
             </div>
         )}
 

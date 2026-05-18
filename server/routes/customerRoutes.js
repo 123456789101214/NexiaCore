@@ -9,9 +9,13 @@ import {
     toggleCustomerStatus
 } from '../controllers/customerController.js';
 
+import { requireFeature } from '../middleware/planMiddleware.js';
+
 const router = express.Router();
 
 router.use(protect); // All customer routes require login
+
+router.use(requireFeature('customerCredit'));
 
 // GET /api/customers — all roles can search (cashier needs this at POS for credit sales)
 // POST /api/customers — owner, admin, manager only

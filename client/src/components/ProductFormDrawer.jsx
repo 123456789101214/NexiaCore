@@ -49,42 +49,68 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
     };
 
 const handleSaveProduct = async (e) => {
-        if (e) e.preventDefault();
+    if (e) e.preventDefault();
+    
+    // 1. FormData එක හදනවා
+    const data = new FormData();
+    Object.keys(formData).forEach(key => {
+        if (formData[key] !== null && formData[key] !== undefined) {
+            data.append(key, formData[key]);
+        }
+    });
+
+    // 2. Image File එක තියෙනවා නම් ඒකත් දානවා
+    if (imageFile) {
+        data.append('image', imageFile);
+    }
+
+    try {
+        // 🛡️ CRITICAL FIX: headers කෑල්ල අනිවාර්යයෙන්ම දාන්න ඕනේ!
+        const config = {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        };
+
+        const res = editData
+            ? await API.put(`/products/${editData._id}`, data, config)
+            : await API.post('/products', data, config);
+
+        if (res.data.success) {
+            Swal.fire('Success!', 'Product saved successfully', 'success');
+            onSuccess(); // ඉන්වෙන්ටරි ලිස්ට් එක රිෆ්‍රෙෂ් කරන්න
+            onClose();   // ඩ්‍රෝවර් එක වහන්න
+        }
+    } catch (error) {
+        console.error("Save Product Error:", error);
         
-        // 1. FormData එක හදනවා
-        const data = new FormData();
-        Object.keys(formData).forEach(key => {
-            // null හෝ undefined අගයන් යන්නේ නැති වෙන්න පොඩි check එකක් දාන එක හොඳයි
-            if (formData[key] !== null && formData[key] !== undefined) {
-                data.append(key, formData[key]);
-            }
-        });
-
-        // 2. Image File එක තියෙනවා නම් ඒකත් දානවා
-        if (imageFile) {
-            data.append('image', imageFile);
+        // 👑 ARCHITECT LEVEL ALERT: මැනුවල් ඇඩ් කරද්දී ලිමිට් පැන්නොත් වදින ඇලර්ට් එක
+        if (error.response?.status === 403) {
+            Swal.fire({
+                title: '👑 Product Limit Reached',
+                text: error.response?.data?.error || 'You have reached the maximum number of products allowed for your current plan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '⚡ Upgrade Plan Now',
+                cancelButtonText: 'Maybe Later',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b',
+                customClass: { popup: 'rounded-[2rem] shadow-2xl p-6' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (typeof onClose === 'function') onClose(); // මුලින්ම Drawer එක වහනවා
+                    navigate('/settings'); // ඊටපස්සේ අප්ග්‍රේඩ් පේජ් එකට යවනවා
+                }
+            });
+        } else {
+            // වෙනත් සාමාන්‍ය ඉමේජ් සයිස්/නෙට්වර්ක් අවුලක් ආවොත් විතරක් මේක පෙන්වනවා
+            Swal.fire({
+                title: 'Error',
+                text: error.response?.data?.message || 'Failed to save product. Check the image format or size.',
+                icon: 'error',
+                customClass: { popup: 'rounded-[2rem]' }
+            });
         }
-
-        try {
-            // 🛡️ CRITICAL FIX: headers කෑල්ල අනිවාර්යයෙන්ම දාන්න ඕනේ!
-            const config = {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            };
-
-            const res = editData
-                ? await API.put(`/products/${editData._id}`, data, config)
-                : await API.post('/products', data, config);
-
-            if (res.data.success) {
-                Swal.fire('Success!', 'Product saved successfully', 'success');
-                onSuccess(); // ඉන්වෙන්ටරි ලිස්ට් එක රිෆ්‍රෙෂ් කරන්න
-                onClose();   // ඩ්‍රෝවර් එක වහන්න
-            }
-        } catch (error) {
-            console.error("Save Product Error:", error);
-            Swal.fire('Error', 'Failed to save product. Check the image format or size.', 'error');
-        }
-    };
+    }
+};
 
     return (
         <div className={`fixed inset-0 z-[100] overflow-hidden transition-all duration-500 ${isOpen ? 'visible' : 'invisible'}`}>

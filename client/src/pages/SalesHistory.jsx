@@ -5,6 +5,7 @@ import {
     Search, Download, Eye, TrendingUp, DollarSign, ShoppingBag, X, Calendar, ChevronDown 
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import FeatureGate from '../components/FeatureGate';
 
 const SalesHistory = () => {
     const user = useAuthStore((state) => state.user); // 💡 PRO FIX: Zustand වලින් user ගන්නවා
@@ -141,6 +142,7 @@ const SalesHistory = () => {
     };
 
     return (
+        <FeatureGate feature="analytics" featureNameTitle="Sales Analytics">
         <div className="space-y-6 animate-in fade-in duration-700">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -402,6 +404,7 @@ const SalesHistory = () => {
                 </div>
             )}
         </div>
+        </FeatureGate>
     );
 };
 

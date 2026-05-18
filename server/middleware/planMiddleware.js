@@ -2,58 +2,141 @@ import Shop from '../models/Shop.js';
 import Product from '../models/Product.js';
 import User from '../models/User.js';
 
-const PLAN_LIMITS = {
-    free: { maxProducts: 500, maxStaff: 2 },
-    pro: { maxProducts: 5000, maxStaff: 10 },
-    enterprise: { maxProducts: Infinity, maxStaff: Infinity }
+// ━━━ 1. PLAN CONFIGURATION (MUST BE AT THE TOP) ━━━
+const PLAN_FEATURES = {
+    free: {
+        maxProducts: 500, // 👈 Testing limit
+        maxUsers: 1,    // 👈 Testing limit
+        customerCredit: false,
+        analytics: false,
+        stockForecast: false,
+        expiryAlerts: false,
+        bulkUpload: false,
+        advancedReports: false,
+    },
+    pro: {
+        maxProducts: 5000,
+        maxUsers: 2,
+        customerCredit: true,
+        analytics: true,
+        stockForecast: true,
+        expiryAlerts: true,
+        bulkUpload: true,
+        advancedReports: true,
+    },
+    enterprise: {
+        maxProducts: Infinity,
+        maxUsers: Infinity,
+        customerCredit: true,
+        analytics: true,
+        stockForecast: true,
+        expiryAlerts: true,
+        bulkUpload: true,
+        advancedReports: true,
+    }
 };
+
+// ━━━ 2. HELPER FUNCTION ━━━
+const getEffectivePlan = async (shopId) => {
+    const shop = await Shop.findById(shopId).select('subscriptionPlan planStatus trialEndsAt');
+    if (!shop) return 'free';
+
+    
+    const planStatus = shop.planStatus?.toLowerCase();
+    const subPlan = shop.subscriptionPlan?.toLowerCase() || 'free';
+
+    // Expired trial or cancelled → treat as free
+    if (planStatus === 'expired' || planStatus === 'cancelled') return 'free';
+
+    // Trial counts as pro (full features during trial)
+    if (planStatus === 'trial') {
+        const now = new Date();
+        if (shop.trialEndsAt && now > shop.trialEndsAt) return 'free'; // trial ended
+        return subPlan === 'free' ? 'pro' : subPlan; 
+    }
+
+    return subPlan;
+};
+
+// ━━━ 3. MIDDLEWARE FUNCTIONS ━━━
 
 export const checkProductLimit = async (req, res, next) => {
     try {
-        const shop = await Shop.findById(req.user.shopId);
-        if (!shop) return res.status(404).json({ success: false, error: 'Shop not found' });
+        const effectivePlan = await getEffectivePlan(req.user.shopId);
+        const limit = PLAN_FEATURES[effectivePlan]?.maxProducts || 500;
 
-        // 🛡️ GAP 2 FIX: Dynamic API-Level Enforcement
-        const effectivePlan = (shop.planStatus === 'expired' || shop.planStatus === 'cancelled') 
-            ? 'free' 
-            : shop.subscriptionPlan;
+        if (limit === Infinity) return next();
 
-        const limit = PLAN_LIMITS[effectivePlan]?.maxProducts ?? 500;
-        const currentProducts = await Product.countDocuments({ shopId: req.user.shopId });
+        const currentCount = await Product.countDocuments({ 
+            $or: [{ shop: req.user.shopId }, { shopId: req.user.shopId }],
+            status: { $ne: 'archived' } 
+        });
 
-        if (currentProducts >= limit) {
+        console.log(`[PLAN CHECK] Shop: ${req.user.shopId} | Plan: ${effectivePlan} | Active Products: ${currentCount} | Limit: ${limit}`);
+
+        if (currentCount >= limit) {
             return res.status(403).json({
                 success: false,
-                error: `Plan limit reached. Your effective plan (${effectivePlan.toUpperCase()}) allows a maximum of ${limit} products.`
+                error: `Product limit reached (${limit} max). Please upgrade your plan to Pro or Enterprise to add more products.`,
+                limitReached: true
             });
         }
         next();
     } catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to verify plan limits' });
+        console.error('Product limit check error:', error);
+        res.status(500).json({ success: false, error: 'Failed to verify product limit' });
     }
 };
-
-export const checkStaffLimit = async (req, res, next) => {
+export const checkUserLimit = async (req, res, next) => {
     try {
-        const shop = await Shop.findById(req.user.shopId);
-        if (!shop) return res.status(404).json({ success: false, error: 'Shop not found' });
+        const effectivePlan = await getEffectivePlan(req.user.shopId);
+        const limit = PLAN_FEATURES[effectivePlan]?.maxUsers || 2;
 
-        // 🛡️ GAP 2 FIX: Dynamic API-Level Enforcement
-        const effectivePlan = (shop.planStatus === 'expired' || shop.planStatus === 'cancelled') 
-            ? 'free' 
-            : shop.subscriptionPlan;
+        if (limit === Infinity) return next();
 
-        const limit = PLAN_LIMITS[effectivePlan]?.maxStaff ?? 2;
-        const currentStaff = await User.countDocuments({ shopId: req.user.shopId });
+        // Count current staff for this shop
+        const currentCount = await User.countDocuments({ shopId: req.user.shopId }); 
 
-        if (currentStaff >= limit) {
+        if (currentCount >= limit) {
             return res.status(403).json({
                 success: false,
-                error: `Plan limit reached. Your effective plan (${effectivePlan.toUpperCase()}) allows a maximum of ${limit} staff accounts.`
+                error: `Staff limit reached (${limit} max). Please upgrade your plan to add more staff members.`,
+                limitReached: true
             });
         }
         next();
     } catch (error) {
-        res.status(500).json({ success: false, error: 'Failed to verify plan limits' });
+        console.error('User limit check error:', error);
+        res.status(500).json({ success: false, error: 'Failed to verify staff limit' });
     }
 };
+
+// 💡 PRO FIX: Remove the duplicate checkStaffLimit logic and alias it to checkUserLimit 
+// This ensures any route using 'checkStaffLimit' still works perfectly but uses the new logic!
+export const checkStaffLimit = checkUserLimit; 
+
+export const requireFeature = (featureName) => {
+    return async (req, res, next) => {
+        try {
+            const effectivePlan = await getEffectivePlan(req.user.shopId);
+            const features = PLAN_FEATURES[effectivePlan] || PLAN_FEATURES.free;
+
+            if (!features[featureName]) {
+                return res.status(403).json({
+                    success: false,
+                    error: `This feature requires a Pro or Enterprise plan.`,
+                    featureLocked: true,
+                    feature: featureName,
+                    currentPlan: effectivePlan,
+                    upgradeRequired: true
+                });
+            }
+            next();
+        } catch (error) {
+            console.error('Feature gate error:', error);
+            res.status(500).json({ success: false, error: 'Plan validation failed' });
+        }
+    };
+};
+
+export { PLAN_FEATURES, getEffectivePlan };

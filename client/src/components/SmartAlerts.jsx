@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import API from '../services/api';
 import { AlertTriangle, ChevronRight, Calendar, X, Box, History, Tag, Loader2, CheckCircle2, AlertOctagon } from 'lucide-react';
 import Swal from 'sweetalert2';
-
+import FeatureGate from './FeatureGate';
 const SmartAlerts = () => {
     const [alerts, setAlerts] = useState([]);
     const [stockForecast, setStockForecast] = useState([]);
@@ -87,6 +87,7 @@ const SmartAlerts = () => {
     const totalCritical = criticalExpiry + criticalStock;
 
     return (
+        <FeatureGate feature="expiryAlerts" featureNameTitle="Smart Expiry Alerts">
         <div className="mb-10">
             {/* Dashboard Card */}
             <div onClick={() => setIsDrawerOpen(true)} className="group cursor-pointer bg-gradient-to-r from-indigo-500 via-amber-500 to-orange-600 p-[1.5px] rounded-[2.5rem] shadow-xl shadow-amber-500/10 hover:scale-[1.01] active:scale-95 transition-all duration-300">
@@ -265,6 +266,7 @@ const SmartAlerts = () => {
                 </div>
             </div>
         </div>
+        </FeatureGate>
     );
 };
 

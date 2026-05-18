@@ -8,6 +8,7 @@ import {
     bulkArchiveProducts,
     applyDiscount
 } from '../controllers/productController.js';
+import { requireFeature, checkProductLimit } from '../middleware/planMiddleware.js';
 
 import { protect, authorize } from '../middleware/authMiddleware.js';
 // import { checkSubscription } from '../middleware/subscriptionMiddleware.js';
@@ -25,9 +26,9 @@ router.use(protect);
 // -------------------------------------------------------------------------
 
 // 🛡️ High-level management requires proper authorization
-router.post('/bulk-upload', authorize('owner', 'admin'), bulkUploadProducts);
+router.post('/bulk-upload', protect, authorize('owner','admin'), requireFeature('bulkUpload'), checkProductLimit, bulkUploadProducts);
 router.put('/bulk-archive-all', authorize('owner', 'admin'), bulkArchiveProducts); 
-router.get('/expiry-alerts', authorize('owner', 'admin', 'manager'), getSmartAlerts);
+router.get('/expiry-alerts', protect,  authorize('owner', 'admin', 'manager'), requireFeature('expiryAlerts'), getSmartAlerts);
 
 // 💡 PRO FIX: Discount logic for higher roles only
 router.put('/:id/apply-discount', authorize('admin', 'owner', 'manager'), applyDiscount);
@@ -40,7 +41,7 @@ router.route('/')
     .get(getProducts) // All staff can view products
     .post(
         authorize('owner', 'admin', 'manager'), 
- // 🛡️ Limit check BEFORE upload (Cloudinary Safety)
+        checkProductLimit,
         upload.single('image'), 
         addProduct
     );
