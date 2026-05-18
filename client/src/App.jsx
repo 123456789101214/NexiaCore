@@ -1,13 +1,10 @@
-// App.jsx - ONLY CHANGE NEEDED
-// Move /register route from ProtectedRoute to PublicRoute block
-
-// ✅ CORRECT App.jsx structure:
+// App.jsx - 100% Cleaned & Fixed
 
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import useAuthStore from './store/authStore';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import Register from './pages/Register';      // ← import must exist
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
 import POS from './pages/POS';
@@ -17,9 +14,10 @@ import NewPurchase from './pages/NewPurchase';
 import GRNHistory from './pages/GRNHistory';
 import Customers from './pages/Customers';
 import Settings from './pages/Settings';
-import SaaSDashboard from './pages/SaaSDashboard';
+import SaaSDashboard from './pages/SaaSDashboard'; // ඔයාගේ Super Admin පේජ් එක
 import StaffManagement from './pages/StaffManagement';
 import ForgotPassword from './pages/ForgotPassword';
+import SuperAdminRoute from "./components/SuperAdminRoute"; // අලුත් Route Protector එක
 
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -41,15 +39,7 @@ function App() {
           <Route path="/login" element={<Login />} />
         </Route>
 
-        {/*
-          /register is OUTSIDE PublicRoute and ProtectedRoute intentionally.
-          Register.jsx handles both states itself:
-            - Not logged in → shows registration form
-            - Logged in     → shows "Already Logged In" wall
-          PublicRoute would redirect logged-in users BEFORE Register.jsx renders.
-        */}
         <Route path="/register" element={<Register />} />
-
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* ✅ PROTECTED ROUTES — login required */}
@@ -65,8 +55,14 @@ function App() {
             <Route path="grn-history" element={<GRNHistory />} />
             <Route path="customers" element={<Customers />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="super-admin" element={<SaaSDashboard />} />
             <Route path="staff" element={<StaffManagement />} />
+
+            {/* 🔥 SUPER ADMIN PROTECTED ROUTE (Nested inside Layout) 🔥 */}
+            {/* මේකෙන් කියන්නේ: Login වෙලා ඉන්න ඕනේ -> Layout එක තියෙන්න ඕනේ -> Super Admin කෙනෙක් වෙන්නත් ඕනේ */}
+            <Route element={<SuperAdminRoute />}>
+              <Route path="super-admin" element={<SaaSDashboard />} />
+            </Route>
+
           </Route>
         </Route>
 

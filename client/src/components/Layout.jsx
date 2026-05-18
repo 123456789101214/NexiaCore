@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { isSuperAdmin } from '../services/auth'; // 🔥 Import the function
 import useAuthStore from '../store/authStore';
+
 import {
   LayoutDashboard, Package, ShoppingCart, Users, LogOut, Store, Menu, X,
   BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck
 } from 'lucide-react';
-
-// import TrialBanner from '../components/TrialBanner';
 
 const Layout = () => {
   const user = useAuthStore((state) => state.user);
@@ -16,12 +16,8 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-// 🛡️ STRICT SUPER ADMIN CHECK (Case-insensitive & checks if env exists)
-  const envAdminEmail = import.meta.env.VITE_SUPER_ADMIN_EMAIL?.toLowerCase()?.trim();
-  const userEmail = user?.email?.toLowerCase()?.trim();
-  const isSuperAdmin = envAdminEmail && userEmail === envAdminEmail;
-  console.log("1. Env Admin Email:", import.meta.env.VITE_SUPER_ADMIN_EMAIL);
-  console.log("2. Logged User Email:", user?.email);
+  // 🛡️ CLEAN SUPER ADMIN CHECK: Use the imported function and store result in a newly named variable
+  const hasSuperAdminAccess = isSuperAdmin(user);
 
   const menuItems = useMemo(() => {
     const allItems = [
@@ -94,22 +90,16 @@ const Layout = () => {
             })}
             
             {/* 🛡️ SUPER ADMIN PORTAL LINK */}
-            {isSuperAdmin && (
-              <Link 
-                to="/super-admin" 
-                onClick={() => setIsSidebarOpen(false)} 
-                className={`mt-6 flex items-center gap-3 px-4 py-3 font-black text-xs uppercase tracking-widest rounded-xl transition-all border-t border-slate-100 pt-5 ${
-                  location.pathname.startsWith('/super-admin') 
-                    ? 'bg-indigo-50 text-indigo-600 shadow-sm' 
-                    : 'text-slate-400 hover:bg-indigo-50 hover:text-indigo-600'
-                }`}
-              >
-                <ShieldCheck size={20} /> Super Admin Portal
-              </Link>
+            {hasSuperAdminAccess && (
+              <div className="mt-auto mb-4">
+                <Link to="/super-admin" className="w-full flex items-center justify-center p-3 bg-indigo-50 text-indigo-700 font-bold rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                  <ShieldCheck size={18} className="mr-2" />
+                  SUPER ADMIN PORTAL
+                </Link>
+              </div>
             )}
           </nav>
           
-          {/* 🛑 RESTORED FOOTER: This was missing in your code! Do not remove it. */}
           <div className="p-4 border-t border-slate-100">
             <div className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 rounded-2xl border border-slate-100">
               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-black text-sm shrink-0 shadow-sm border border-blue-200">
@@ -129,7 +119,6 @@ const Layout = () => {
         </aside>
 
         <main className="flex-1 overflow-y-auto flex flex-col bg-slate-50">
-          {/* <TrialBanner /> */}
           <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 shrink-0 shadow-sm">
             <div className="flex items-center gap-4">
               <button
@@ -139,7 +128,6 @@ const Layout = () => {
                 <Menu size={24} />
               </button>
               <h1 className="text-lg font-black text-slate-800 uppercase tracking-tight">
-                {/* 💡 Shows 'Super Admin Portal' when in that route */}
                 {location.pathname.startsWith('/super-admin') 
                   ? 'Super Admin Portal' 
                   : (menuItems.find(item => location.pathname.startsWith(item.path))?.name || 'Nexus POS')}
@@ -147,14 +135,13 @@ const Layout = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm ${
-                isSuperAdmin ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
+                hasSuperAdminAccess ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
                 user?.role === 'admin'   ? 'bg-purple-100 text-purple-700 border border-purple-200' :
                 user?.role === 'manager' ? 'bg-orange-100 text-orange-700 border border-orange-200' :
                 user?.role === 'owner'   ? 'bg-blue-100 text-blue-700 border border-blue-200' :
                                            'bg-emerald-100 text-emerald-700 border border-emerald-200'
               }`}>
-                {/* 💡 Dynamic Badge for Super Admin */}
-                {isSuperAdmin ? 'SUPER ADMIN' : user?.role || 'Guest'} MODE
+                {hasSuperAdminAccess ? 'SUPER ADMIN' : user?.role || 'Guest'} MODE
               </span>
             </div>
           </header>
