@@ -153,14 +153,71 @@ export const toggleShopStatus = async (req, res) => {
     shop.isActive = !shop.isActive;
 
     if (!shop.isActive) {
+      // කඩේ Off කරද්දී අනිවාර්යයෙන්ම Cancelled වෙනවා
       shop.planStatus = 'cancelled';
     } else {
-      shop.planStatus = (shop.planExpiresAt && shop.planExpiresAt > new Date()) ? 'active' : 'expired';
+      // කඩේ ආයෙත් On කරද්දී බලන ලොජික් එක
+      if (shop.subscriptionPlan === 'free') {
+        // 💡 FIX: Plan එක Free නම්, කවදාවත් Expire වෙන්නේ නැති නිසා කෙලින්ම Active කරනවා
+        shop.planStatus = 'active'; 
+      } else {
+        // Pro හෝ Enterprise නම්, Expiry Date එක අනුව Active ද Expired ද කියලා තීරණය කරනවා
+        shop.planStatus = (shop.planExpiresAt && new Date(shop.planExpiresAt) > new Date()) ? 'active' : 'expired';
+      }
     }
 
     await shop.save();
-    res.status(200).json({ success: true, data: shop, message: `Shop ${shop.isActive ? 'activated' : 'suspended'}` });
+    res.status(200).json({ 
+      success: true, 
+      data: shop, 
+      message: `Shop successfully ${shop.isActive ? 'activated' : 'suspended'}` 
+    });
   } catch (error) {
+    console.error('Toggle Shop Error:', error);
     res.status(500).json({ success: false, error: 'Failed to toggle shop status' });
+  }
+};
+export const downgradeShopPlan = async (req, res) => {
+  try {
+    const shop = await Shop.findById(req.params.id);
+    if (!shop) return res.status(404).json({ success: false, error: 'Shop not found' });
+
+    if (shop.subscriptionPlan === 'free') {
+      return res.status(400).json({ success: false, error: 'Shop is already on the Free plan' });
+    }
+
+    const oldPlan = shop.subscriptionPlan;
+
+    // 1. Shop එකේ Plan විස්තර Update කිරීම (SaaS Edge Case: Reset Expiries)
+    shop.subscriptionPlan = 'free';
+    shop.planStatus = 'active'; // Free plan is always active
+    shop.planExpiresAt = null;  // No expiry for free
+    shop.trialEndsAt = null;    // Remove any trial traces
+    
+    await shop.save();
+
+    // 2. Audit Trail එකක් තැබීම (Payment History අවුල් නොවීම සඳහා)
+    const auditRecord = new ShopPayment({
+      shopId: shop._id,
+      plan: 'free',
+      amount: 0,
+      paymentMethod: 'Free', // Schema එකේ තියෙන Enum එක පාවිච්චි කිරීම
+      status: 'completed',
+      notes: `Manual downgrade from ${oldPlan.toUpperCase()} by Super Admin`,
+      recordedBy: req.user._id, // Super Admin ගේ ID එක
+      verifiedBy: req.user._id,
+      verifiedAt: new Date()
+    });
+    
+    await auditRecord.save();
+
+    res.status(200).json({ 
+        success: true, 
+        data: shop, 
+        message: 'Shop successfully downgraded to Free plan' 
+    });
+  } catch (error) {
+    console.error('Downgrade Error:', error);
+    res.status(500).json({ success: false, error: 'Failed to downgrade shop plan' });
   }
 };

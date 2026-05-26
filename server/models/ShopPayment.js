@@ -21,7 +21,7 @@ const ShopPaymentSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['Free', 'Online Transfer', 'Bank Deposit', 'Cash', 'Card'],
+    enum: ['Bank Deposit', 'Online Transfer', 'Free', 'PayHere'],
     required: true
   },
   transactionId: {
@@ -53,7 +53,7 @@ const ShopPaymentSchema = new mongoose.Schema({
   recordedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   // Super Admin Verification tracking
   verifiedBy: {

@@ -2,6 +2,8 @@
 import Shop from '../models/Shop.js';
 import ShopPayment from '../models/ShopPayment.js';
 import { getEffectivePlan, PLAN_FEATURES } from '../middleware/planMiddleware.js';
+import md5 from 'md5';
+import mongoose from 'mongoose';
 
 export const getMySubscription = async (req, res) => {
   try {
@@ -20,7 +22,7 @@ export const getMySubscription = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
 
-    res.status(200).json({ success: true, data: { shop, trialDaysRemaining, paymentHistory, features, effectivePlan, trialDaysRemaining } });
+    res.status(200).json({ success: true, data: { shop, paymentHistory, features, effectivePlan, trialDaysRemaining } });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to fetch subscription data' });
   }
@@ -171,5 +173,143 @@ export const upgradePlan = async (req, res) => {
   } catch (error) {
     console.error('Upgrade Error:', error);
     res.status(500).json({ success: false, error: 'Failed to process upgrade' });
+  }
+};
+
+export const initiatePayherePayment = async (req, res) => {
+  try {
+    const { plan } = req.body;
+
+    if (plan === 'enterprise') {
+      return res.status(400).json({ success: false, error: 'Please contact sales for Enterprise plan upgrades.' });
+    }
+
+    const shop = await Shop.findById(req.user.shopId);
+    if (!shop) return res.status(404).json({ success: false, error: 'Shop not found' });
+
+    const amount = plan === 'pro' ? 2999 : 0;
+    if (amount === 0) return res.status(400).json({ success: false, error: 'Invalid plan selected' });
+
+    const merchant_id = process.env.PAYHERE_MERCHANT_ID;
+    const merchant_secret = process.env.PAYHERE_MERCHANT_SECRET;
+    const currency = 'LKR';
+    const formattedAmount = amount.toFixed(2);
+    const order_id = `NEXIA-${req.user.shopId.toString().slice(-6).toUpperCase()}-${Date.now()}`;
+
+    // Generate MD5 Hash
+    const hash = md5(
+      merchant_id +
+      order_id +
+      formattedAmount +
+      currency +
+      md5(merchant_secret).toUpperCase()
+    ).toUpperCase();
+
+    const paymentParams = {
+      sandbox: process.env.PAYHERE_SANDBOX === 'true',
+      merchant_id,
+      return_url: `${process.env.CLIENT_URL}/settings?payment=success`, // 👈 FIXED
+      cancel_url: `${process.env.CLIENT_URL}/settings?payment=cancelled`, // 👈 FIXED
+      notify_url: `${process.env.SERVER_URL}/api/subscription/payhere/notify`, // 👈 FIXED
+      order_id,
+      items: `NexiaCore ${plan.toUpperCase()} Plan - 1 Month`, // 👈 FIXED
+      amount: formattedAmount,
+      currency,
+      hash,
+      first_name: req.user.name.split(' ')[0],
+      last_name: req.user.name.split(' ').slice(1).join(' ') || 'User',
+      email: req.user.email,
+      phone: shop.phone || '0000000000',
+      address: shop.address || 'Sri Lanka',
+      city: 'Colombo',
+      country: 'Sri Lanka',
+      custom_1: req.user.shopId.toString(),
+      custom_2: plan
+    };
+
+    res.status(200).json({ success: true, data: paymentParams });
+  } catch (error) {
+    console.error('PayHere Initiate Error:', error);
+    res.status(500).json({ error: 'Failed to initiate payment gateway' });
+  }
+};
+
+export const payhereNotify = async (req, res) => {
+  try {
+    const {
+      merchant_id,
+      order_id,
+      payhere_amount,
+      payhere_currency,
+      status_code,
+      md5sig,
+      custom_1: shopId,
+      custom_2: plan
+    } = req.body;
+
+    const merchant_secret = process.env.PAYHERE_MERCHANT_SECRET;
+
+    // Verify Signature
+    const localSig = md5(
+      merchant_id +
+      order_id +
+      payhere_amount +
+      payhere_currency +
+      status_code +
+      md5(merchant_secret).toUpperCase()
+    ).toUpperCase();
+
+    if (localSig !== md5sig) {
+      console.error('🚨 PayHere Webhook: Invalid Signature');
+      return res.status(400).send('Invalid signature');
+    }
+
+    // Check if payment was successful
+    if (status_code !== '2') {
+      return res.status(200).send('OK'); // Ignore pending, failed, or canceled statuses
+    }
+
+    const shopObjectId = new mongoose.Types.ObjectId(shopId);
+
+    // Idempotency check: Prevent duplicate webhook processing
+    const existingPayment = await ShopPayment.findOne({ transactionId: order_id });
+    if (existingPayment) {
+      console.log('PayHere webhook duplicate — already processed:', order_id);
+      return res.status(200).send('OK');
+    }
+
+    // Record Payment (Using shopObjectId)
+    await ShopPayment.create({
+      shopId: shopObjectId,
+      plan,
+      amount: parseFloat(payhere_amount),
+      currency: payhere_currency,
+      paymentMethod: 'PayHere',
+      transactionId: order_id,
+      status: 'completed',
+      recordedBy: null
+    });
+
+    // Activate Plan for 30 Days
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    // Update Shop (Using shopObjectId)
+    await Shop.findByIdAndUpdate(shopObjectId, {
+      subscriptionPlan: plan,
+      planStatus: 'active',
+      planStartedAt: new Date(),
+      planExpiresAt: thirtyDaysFromNow,
+      trialEndsAt: new Date() // 💡 FIX 2: End any active trial immediately
+    });
+
+    // 💡 FIX 3: Add success log for backend visibility
+    console.log(`✅ PayHere Activated: Shop=${shopId} Plan=${plan} Order=${order_id}`);
+
+    // MUST return 200 OK string for PayHere
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('PayHere Webhook Error:', error);
+    res.status(500).send('Server Error');
   }
 };

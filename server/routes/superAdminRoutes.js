@@ -6,7 +6,8 @@ import {
   getAllShops,
   getPendingPayments,
   verifyPayment,
-  toggleShopStatus
+  toggleShopStatus,
+  downgradeShopPlan
 } from '../controllers/superAdminController.js';
 
 const router = express.Router();
@@ -26,5 +27,6 @@ router.get('/shops', getAllShops);
 router.get('/payments/pending', getPendingPayments);
 router.put('/payments/:id/verify', verifyPayment);
 router.put('/shops/:id/toggle', toggleShopStatus);
+router.put('/shops/:id/downgrade', downgradeShopPlan);
 
 export default router;

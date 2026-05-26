@@ -3,7 +3,7 @@ import useAuthStore from '../store/authStore';
 
 // 💡 PRO FIX: .env ෆයිල් එකෙන් API URL එක ගන්නවා (Vite වල import.meta.env පාවිච්චි කරන්නේ)
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    baseURL: '/api',
     headers: {
         'Content-Type': 'application/json',
     },

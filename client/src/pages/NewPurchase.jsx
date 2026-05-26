@@ -29,7 +29,12 @@ const NewPurchase = () => {
 
     useEffect(() => {
         if (!isAuthorized) {
-            Swal.fire('Access Denied', 'Unauthorized module access.', 'error');
+            Swal.fire({
+                title: 'Access Denied', 
+                text: 'Unauthorized module access.', 
+                icon: 'error',
+                customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+            });
             navigate('/dashboard');
             return;
         }
@@ -45,7 +50,12 @@ const NewPurchase = () => {
                 if (supplierRes.data.success) setSuppliers(supplierRes.data.data);
                 if (productRes.data.success) setProducts(productRes.data.data);
             } catch (error) {
-                Swal.fire('Sync Error', 'Failed to load master records.', 'error');
+                Swal.fire({
+                    title: 'Sync Error', 
+                    text: 'Failed to load master records.', 
+                    icon: 'error',
+                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                });
             } finally {
                 setIsLoading(false);
             }
@@ -108,8 +118,8 @@ const NewPurchase = () => {
     }, [paymentInfo.paymentType, totalAmount]);
 
     const handleSaveGRN = async () => {
-        if (!selectedSupplier) return Swal.fire('Field Required', 'Supplier must be selected.', 'warning');
-        if (cart.length === 0) return Swal.fire('List Empty', 'Add items to inward.', 'warning');
+        if (!selectedSupplier) return Swal.fire({title: 'Field Required', text: 'Supplier must be selected.', icon: 'warning', customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }});
+        if (cart.length === 0) return Swal.fire({title: 'List Empty', text: 'Add items to inward.', icon: 'warning', customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }});
 
         // Confirm Action (Crucial for SaaS data integrity)
         const result = await Swal.fire({
@@ -119,7 +129,7 @@ const NewPurchase = () => {
             showCancelButton: true,
             confirmButtonText: 'Yes, Confirm Stock Inward',
             confirmButtonColor: '#2563eb',
-            customClass: { popup: 'rounded-[2rem]' }
+            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
         });
 
         if (!result.isConfirmed) return;
@@ -151,42 +161,47 @@ const NewPurchase = () => {
                     title: 'SUCCESS!', 
                     text: `Stock Updated. GRN #${res.data.data.grnNumber}`, 
                     icon: 'success', 
-                    customClass: { popup: 'rounded-[2.5rem]' } 
+                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2.5rem]' } 
                 });
                 navigate('/grn-history');
             }
         } catch (error) {
-            Swal.fire('Operation Failed', error.response?.data?.error || 'Inventory update aborted.', 'error');
+            Swal.fire({
+                title: 'Operation Failed', 
+                text: error.response?.data?.error || 'Inventory update aborted.', 
+                icon: 'error',
+                customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
     if (isLoading) return (
-        <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Securing Tenant Connection...</p>
+        <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 transition-colors">
+            <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-500 animate-spin" />
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Securing Tenant Connection...</p>
         </div>
     );
 
     return (
-        <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-[1600px] mx-auto font-sans animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-[1600px] mx-auto font-sans animate-in fade-in duration-500 transition-colors">
             {/* Left: Entry Area */}
             <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white p-6 md:p-10 rounded-[3rem] shadow-sm border border-slate-100">
+                <div className="bg-white dark:bg-slate-900/60 backdrop-blur-md p-6 md:p-10 rounded-[3rem] shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800/60 transition-colors">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
                         <div>
-                            <h2 className="text-3xl font-black text-slate-800 tracking-tighter flex items-center gap-3">
-                                <ShoppingCart className="text-blue-600" size={32} /> INWARD STOCK
+                            <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter flex items-center gap-3 transition-colors">
+                                <ShoppingCart className="text-blue-600 dark:text-blue-500" size={32} /> INWARD STOCK
                             </h2>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 ml-1">Goods Received Note (GRN)</p>
+                            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1 ml-1 transition-colors">Goods Received Note (GRN)</p>
                         </div>
-                        <div className="flex items-center gap-3 bg-slate-50 px-5 py-3 rounded-2xl border border-slate-200 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
-                             <FileText size={18} className="text-slate-400" />
+                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500/50 transition-all">
+                             <FileText size={18} className="text-slate-400 dark:text-slate-500" />
                              <input 
                                 type="text" 
                                 placeholder="SUPPLIER INV #" 
-                                className="bg-transparent border-none outline-none font-black text-xs text-slate-700 w-32"
+                                className="bg-transparent border-none outline-none font-black text-xs text-slate-700 dark:text-slate-200 dark:placeholder-slate-500 w-32 transition-colors"
                                 value={supplierInvoiceNumber}
                                 onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
                              />
@@ -195,21 +210,21 @@ const NewPurchase = () => {
 
                     {/* Master Selectors */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                        <div className="p-5 bg-slate-50 rounded-[1.5rem] flex items-center gap-4 border border-slate-100">
-                            <User className="text-slate-400" />
+                        <div className="p-5 bg-slate-50 dark:bg-slate-800/50 rounded-[1.5rem] flex items-center gap-4 border border-slate-100 dark:border-slate-700/50 transition-colors">
+                            <User className="text-slate-400 dark:text-slate-500" />
                             <select
-                                className="bg-transparent border-none font-black text-sm text-slate-700 w-full outline-none cursor-pointer"
+                                className="bg-transparent border-none font-black text-sm text-slate-700 dark:text-slate-200 w-full outline-none cursor-pointer transition-colors"
                                 value={selectedSupplier}
                                 onChange={(e) => setSelectedSupplier(e.target.value)}
                             >
-                                <option value="">SELECT SOURCE SUPPLIER</option>
-                                {suppliers.map(s => <option key={s._id} value={s._id}>{s.name.toUpperCase()}</option>)}
+                                <option value="" className="dark:bg-slate-800">SELECT SOURCE SUPPLIER</option>
+                                {suppliers.map(s => <option key={s._id} value={s._id} className="dark:bg-slate-800">{s.name.toUpperCase()}</option>)}
                             </select>
                         </div>
                         <div className="relative group">
-                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors" size={20} />
                             <input
-                                className="w-full pl-14 pr-6 py-5 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-500 font-bold text-sm outline-none transition-all"
+                                className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500/50 font-bold text-sm outline-none text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
                                 placeholder="Scan Barcode or Search Product..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -219,15 +234,15 @@ const NewPurchase = () => {
 
                     {/* Search Results Dropdown */}
                     {searchTerm && searchResults.length > 0 && (
-                        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-blue-50/30 rounded-[2rem] border border-blue-100 animate-in zoom-in-95 duration-200">
+                        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-3 p-4 bg-blue-50/30 dark:bg-blue-900/20 rounded-[2rem] border border-blue-100 dark:border-blue-800/30 animate-in zoom-in-95 duration-200 transition-colors">
                             {searchResults.map(product => (
                                 <button key={product._id} onClick={() => addToCart(product)}
-                                    className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all text-left">
+                                    className="flex items-center justify-between p-4 bg-white dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700/50 rounded-2xl hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg dark:hover:shadow-blue-900/20 transition-all text-left">
                                     <div className="flex flex-col">
-                                        <span className="font-black text-xs text-slate-800 uppercase">{product.name}</span>
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Stock On-hand: {product.stock}</span>
+                                        <span className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase">{product.name}</span>
+                                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">Stock On-hand: {product.stock}</span>
                                     </div>
-                                    <Plus size={16} className="text-blue-600" />
+                                    <Plus size={16} className="text-blue-600 dark:text-blue-400" />
                                 </button>
                             ))}
                         </div>
@@ -237,7 +252,7 @@ const NewPurchase = () => {
                     <div className="overflow-x-auto min-h-[300px]">
                         <table className="w-full text-left border-separate border-spacing-y-3">
                             <thead>
-                                <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                                <tr className="text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] transition-colors">
                                     <th className="pb-2 pl-4">Product Name</th>
                                     <th className="pb-2 text-center">Qty</th>
                                     <th className="pb-2">Unit Cost</th>
@@ -249,34 +264,34 @@ const NewPurchase = () => {
                             <tbody>
                                 {cart.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="py-20 text-center opacity-20">
-                                            <ShoppingCart size={48} className="mx-auto mb-2" />
-                                            <p className="text-xs font-black uppercase tracking-widest">No items pending in current GRN</p>
+                                        <td colSpan="6" className="py-20 text-center opacity-40 dark:opacity-20 transition-colors">
+                                            <ShoppingCart size={48} className="mx-auto mb-2 text-slate-400 dark:text-slate-500" />
+                                            <p className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">No items pending in current GRN</p>
                                         </td>
                                     </tr>
                                 ) : cart.map((item, index) => (
-                                    <tr key={item.productId} className="bg-slate-50/50 hover:bg-slate-50 transition-all">
-                                        <td className="p-5 rounded-l-[1.5rem] border-y border-l border-slate-100">
-                                            <p className="font-black text-slate-800 text-xs uppercase">{item.name}</p>
+                                    <tr key={item.productId} className="bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all">
+                                        <td className="p-5 rounded-l-[1.5rem] border-y border-l border-slate-100 dark:border-slate-700/50">
+                                            <p className="font-black text-slate-800 dark:text-slate-200 text-xs uppercase transition-colors">{item.name}</p>
                                         </td>
-                                        <td className="p-5 border-y border-slate-100">
-                                            <input type="number" min="1" className="w-16 p-2 bg-white border border-slate-200 rounded-xl text-center font-black text-xs outline-none focus:border-blue-500"
+                                        <td className="p-5 border-y border-slate-100 dark:border-slate-700/50">
+                                            <input type="number" min="1" className="w-16 p-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-center font-black text-xs text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 dark:focus:border-blue-500/50 transition-colors"
                                                 value={item.quantity} onChange={(e) => updateItem(index, 'quantity', e.target.value)} />
                                         </td>
-                                        <td className="p-5 border-y border-slate-100">
-                                            <input type="number" className="w-24 p-2 bg-white border border-slate-200 rounded-xl font-black text-xs text-blue-600 outline-none focus:border-blue-500"
+                                        <td className="p-5 border-y border-slate-100 dark:border-slate-700/50">
+                                            <input type="number" className="w-24 p-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-xs text-blue-600 dark:text-blue-400 outline-none focus:border-blue-500 dark:focus:border-blue-500/50 transition-colors"
                                                 value={item.unitCost} onChange={(e) => updateItem(index, 'unitCost', e.target.value)} />
                                         </td>
-                                        <td className="p-5 border-y border-slate-100">
-                                            <input type="number" className="w-24 p-2 bg-white border border-slate-200 rounded-xl font-black text-xs text-emerald-600 outline-none focus:border-emerald-500"
+                                        <td className="p-5 border-y border-slate-100 dark:border-slate-700/50">
+                                            <input type="number" className="w-24 p-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-xs text-emerald-600 dark:text-emerald-400 outline-none focus:border-emerald-500 dark:focus:border-emerald-500/50 transition-colors"
                                                 value={item.sellingPrice} onChange={(e) => updateItem(index, 'sellingPrice', e.target.value)} />
                                         </td>
-                                        <td className="p-5 border-y border-slate-100">
-                                            <input type="date" className="w-32 p-2 bg-white border border-slate-200 rounded-xl font-black text-[10px] text-slate-500 outline-none focus:border-blue-500"
+                                        <td className="p-5 border-y border-slate-100 dark:border-slate-700/50">
+                                            <input type="date" className="w-32 p-2 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl font-black text-[10px] text-slate-500 dark:text-slate-400 outline-none focus:border-blue-500 dark:focus:border-blue-500/50 transition-colors"
                                                 value={item.expiryDate} onChange={(e) => updateItem(index, 'expiryDate', e.target.value)} />
                                         </td>
-                                        <td className="p-5 rounded-r-[1.5rem] border-y border-r border-slate-100 text-center">
-                                            <button onClick={() => setCart(cart.filter((_, i) => i !== index))} className="text-slate-300 hover:text-red-500 transition-colors">
+                                        <td className="p-5 rounded-r-[1.5rem] border-y border-r border-slate-100 dark:border-slate-700/50 text-center">
+                                            <button onClick={() => setCart(cart.filter((_, i) => i !== index))} className="text-slate-300 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">
                                                 <Trash2 size={18} />
                                             </button>
                                         </td>

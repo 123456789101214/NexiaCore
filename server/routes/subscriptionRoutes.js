@@ -3,6 +3,8 @@ import express from 'express';
 import { uploadReceipt } from '../config/receiptUpload.js';
 import { protect, authorize } from '../middleware/authMiddleware.js';
 import {
+  payhereNotify, 
+  initiatePayherePayment,
   getMySubscription,
   upgradePlan,
   updateShopSettings,
@@ -11,10 +13,15 @@ import {
 
 const router = express.Router();
 
+router.post('/payhere/notify', payhereNotify);
+
 router.use(protect);
+
 router.get('/', authorize('owner', 'admin'), getMySubscription);
 router.post('/upgrade', authorize('owner'), uploadReceipt.single('receipt'), upgradePlan);
 router.put('/settings', authorize('owner', 'admin'), updateShopSettings);
 router.get('/trial', getTrialStatus);
 
+
+router.post('/payhere/initiate', authorize('owner'), initiatePayherePayment);
 export default router;

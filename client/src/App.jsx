@@ -1,6 +1,7 @@
 // App.jsx - 100% Cleaned & Fixed
 
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
 import useAuthStore from './store/authStore';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -18,6 +19,8 @@ import SaaSDashboard from './pages/SaaSDashboard'; // ඔයාගේ Super Admi
 import StaffManagement from './pages/StaffManagement';
 import ForgotPassword from './pages/ForgotPassword';
 import SuperAdminRoute from "./components/SuperAdminRoute"; // අලුත් Route Protector එක
+import useThemeStore from './store/themeStore';
+import OnlineGuard from './components/OnlineGuard';
 
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -30,6 +33,11 @@ const PublicRoute = () => {
 };
 
 function App() {
+  const initTheme = useThemeStore((state) => state.initTheme);
+
+    useEffect(() => {
+        initTheme(); // ඇප් එක ලෝඩ් වෙද්දීම Theme එක සෙට් කරනවා
+    }, [initTheme]);
   return (
     <Router>
       <Routes>
@@ -46,16 +54,16 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="inventory" element={<Inventory />} />
+            <Route path="dashboard" element={<OnlineGuard><Dashboard /></OnlineGuard>} />
+            <Route path="inventory" element={<OnlineGuard><Inventory /></OnlineGuard>} />
             <Route path="pos" element={<POS />} />
             <Route path="sales-history" element={<SalesHistory />} />
-            <Route path="suppliers" element={<Suppliers />} />
-            <Route path="new-purchase" element={<NewPurchase />} />
-            <Route path="grn-history" element={<GRNHistory />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="staff" element={<StaffManagement />} />
+            <Route path="suppliers" element={<OnlineGuard><Suppliers /></OnlineGuard>} />
+            <Route path="new-purchase" element={<OnlineGuard><NewPurchase /></OnlineGuard>} />
+            <Route path="grn-history" element={<OnlineGuard><GRNHistory /></OnlineGuard>} />
+            <Route path="customers" element={<OnlineGuard><Customers /></OnlineGuard>} />
+            <Route path="settings" element={<OnlineGuard><Settings /></OnlineGuard>} />
+            <Route path="staff" element={<OnlineGuard><StaffManagement /></OnlineGuard>} />
 
             {/* 🔥 SUPER ADMIN PROTECTED ROUTE (Nested inside Layout) 🔥 */}
             {/* මේකෙන් කියන්නේ: Login වෙලා ඉන්න ඕනේ -> Layout එක තියෙන්න ඕනේ -> Super Admin කෙනෙක් වෙන්නත් ඕනේ */}
