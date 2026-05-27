@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, Loader2 } from 'lucide-react';
 import api from '../services/api'; // 💡 අපේ අලුත් API Service එක
 import useAuthStore from '../store/authStore'; // 💡 Zustand Store එක
+import PWAInstallPrompt from '../components/PWAInstallPrompt'; 
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -113,6 +114,7 @@ const Login = () => {
                     </form>
                 </div>
             </div>
+            <PWAInstallPrompt />
         </div>
     );
 };
