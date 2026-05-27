@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "lk.nexiacore.pos",
+      "sha256_cert_fingerprints": [
+        "SHA256: ED:C9:04:74:FE:12:EE:B3:65:E2:EE:B4:D3:DB:14:F9:61:A8:EB:3A:51:1E:F7:67:01:88:5D:28:AA:74:9C:54"
+      ]
+    }
+  }
+]
