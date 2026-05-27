@@ -81,7 +81,7 @@ define(['./workbox-290dd570'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.d295md512bc"
+    "revision": "0.86krd538nuo"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -91,8 +91,8 @@ define(['./workbox-290dd570'], (function (workbox) { 'use strict';
     "cacheName": "products-cache",
     "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 1,
-      maxAgeSeconds: 86400
+      maxEntries: 10,
+      maxAgeSeconds: 14400
     })]
   }), 'GET');
   workbox.registerRoute(/^https:\/\/.*\/api\/customers/, new workbox.NetworkFirst({
