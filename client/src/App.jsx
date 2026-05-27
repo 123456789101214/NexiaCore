@@ -21,6 +21,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import SuperAdminRoute from "./components/SuperAdminRoute"; // අලුත් Route Protector එක
 import useThemeStore from './store/themeStore';
 import OnlineGuard from './components/OnlineGuard';
+import AppDownloadModal from './components/AppDownloadModal';
 
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -75,6 +76,7 @@ function App() {
         </Route>
 
       </Routes>
+      <AppDownloadModal />
     </Router>
   );
 }
