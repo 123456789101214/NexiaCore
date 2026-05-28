@@ -81,11 +81,12 @@ define(['./workbox-290dd570'], (function (workbox) { 'use strict';
     "revision": "3ca0b8505b4bec776b69afdba2768812"
   }, {
     "url": "index.html",
-    "revision": "0.reofhens69s"
+    "revision": "0.jlgosd8melg"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
-    allowlist: [/^\/$/]
+    allowlist: [/^\/$/],
+    denylist: [/^\/downloads\//]
   }));
   workbox.registerRoute(/^https:\/\/.*\/api\/products/, new workbox.NetworkFirst({
     "cacheName": "products-cache",
