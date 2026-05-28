@@ -96,17 +96,17 @@ const AppDownloadModal = () => {
                     </div>
 
                     {/* Download Button */}
-                    <a 
-    href="/downloads/NexiaCore_POS_v1.0.apk" 
-    download="NexiaCore_POS_v1.0.apk"
-    target="_blank" 
-    rel="external noopener noreferrer" // ⚠️ මේකෙන් කියන්නේ React එකට මේක අල්ලන්න එපා කියලා
-    onClick={() => setTimeout(() => setIsOpen(false), 1000)}
-    className="w-full flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-black uppercase text-sm tracking-widest shadow-lg shadow-slate-900/20 dark:shadow-white/20 hover:shadow-xl transition-all hover:-translate-y-1 active:scale-95 group"
->
-    <Download size={20} className="group-hover:animate-bounce" />
-    Download APK (Free)
-</a>
+                    <a
+                        href="/downloads/NexiaCore_POS_v1.0.apk"
+                        download="NexiaCore_POS_v1.0.apk"
+                        target="_blank"
+                        rel="external noopener noreferrer" // ⚠️ මේකෙන් කියන්නේ React එකට මේක අල්ලන්න එපා කියලා
+                        onClick={() => setTimeout(() => setIsOpen(false), 1000)}
+                        className="w-full flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-4 rounded-2xl font-black uppercase text-sm tracking-widest shadow-lg shadow-slate-900/20 dark:shadow-white/20 hover:shadow-xl transition-all hover:-translate-y-1 active:scale-95 group"
+                    >
+                        <Download size={20} className="group-hover:animate-bounce" />
+                        Download APK (Free)
+                    </a>
 
                     <p className="text-center text-[11px] text-slate-400 mt-4 font-medium">
                         Requires Android 8.0 or higher.
