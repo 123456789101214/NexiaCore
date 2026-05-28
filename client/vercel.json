@@ -18,7 +18,7 @@
   "redirects": [
     {
       "source": "/app",
-      "destination": "/downloads/NexiaCore_POS_v1.0.apk",
+      "destination": "/downloads/NexiaCore_POS_v1.0.1.apk",
       "permanent": false
     }
   ],
