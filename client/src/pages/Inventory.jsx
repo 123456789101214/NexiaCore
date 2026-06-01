@@ -3,7 +3,7 @@ import API from '../services/api';
 import useAuthStore from '../store/authStore';
 import ExcelBulkUpload from '../components/ExcelBulkUpload';
 import usePlanStore from '../store/planStore';
-import { Package, Plus, Search, Edit, Trash2, Barcode, Download, Loader2, Lock, Upload } from 'lucide-react';
+import { Package, Plus, Search, Edit, Trash2, Barcode, Download, Loader2, Lock, Upload, QrCode } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import ProductFormDrawer from '../components/ProductFormDrawer';
@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import BulkUploadModal from '../components/BulkUploadModal';
 import { useBarcodeAutoFill } from '../hooks/useBarcodeAutoFill';
 import BarcodeAutoFillBadge from '../components/BarcodeAutoFillBadge';
+import { printBarcodeLabel } from '../utils/generateBarcode';
 
 const Inventory = () => {
     const user = useAuthStore((state) => state.user);
@@ -260,9 +261,9 @@ const Inventory = () => {
                             <button
                                 onClick={() => setShowBulkUpload(true)}
                                 className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${!hasBulkUpload
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-80'
-                                : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm dark:shadow-none'
-                                }`}
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-80'
+                                    : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm dark:shadow-none'
+                                    }`}
                             >
                                 <Upload size={16} />
                                 Smart Bulk Upload
@@ -384,6 +385,13 @@ const Inventory = () => {
                                                 </button>
                                                 <button onClick={() => handleDelete(product._id)} className="p-2.5 hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 rounded-xl transition-all">
                                                     <Trash2 size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => printBarcodeLabel(product, 'NEXIACORE RETAIL')}
+                                                    title="Print Barcode Labels"
+                                                    className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all"
+                                                >
+                                                    <QrCode size={16} />
                                                 </button>
                                             </div>
                                         </td>
