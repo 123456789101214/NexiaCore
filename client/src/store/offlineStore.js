@@ -18,7 +18,7 @@ const useOfflineStore = create(
           const res = await API.get('/products?limit=500');
           const products = res.data.data;
           await db.products.clear();
-          await db.products.bulkAdd(products);
+          await db.products.bulkPut(products);
           set({ lastSyncAt: new Date().toISOString() });
           console.log(`✅ Cached ${products.length} products for offline use`);
         } catch (error) {
@@ -30,7 +30,7 @@ const useOfflineStore = create(
         try {
           const res = await API.get('/customers');
           await db.customers.clear();
-          await db.customers.bulkAdd(res.data.data);
+          await db.customers.bulkPut(res.data.data);
         } catch (error) {
           console.log('Could not cache customers');
         }
