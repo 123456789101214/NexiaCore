@@ -750,9 +750,37 @@ const POS = () => {
             <BarcodeScannerModal
                 isOpen={isScannerOpen}
                 onClose={() => setIsScannerOpen(false)}
-                onScan={(scannedText) => {
-                    setSearchTerm(scannedText);
-                    lookupBarcode(scannedText); // AI එකට යවනවා
+                onScan={(scannedBarcode) => {
+                    // 1. Search Bar එකට Barcode එක දානවා (POS එකේ තියෙන්නේ setSearchQuery)
+                    setSearchQuery(scannedBarcode);
+                    
+                    // 2. Barcode එකෙන් Product එක හොයනවා
+                    const foundProduct = products.find(p => p.barcode === scannedBarcode);
+                    
+                    if (foundProduct) {
+                        // Product එක තිබ්බොත් කෙලින්ම Cart එකට Add කරනවා
+                        handleAddToCart(foundProduct);
+                        
+                        // Add වුණාට පස්සේ Search කොටුව ආයේ හිස් කරනවා ඊළඟ එක ගහන්න ලේසි වෙන්න
+                        setSearchQuery(''); 
+                        
+                        Swal.fire({
+                            title: 'Added!',
+                            text: `${foundProduct.name} added to cart`,
+                            icon: 'success',
+                            timer: 1000,
+                            showConfirmButton: false,
+                            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                        });
+                    } else {
+                        // බඩුව නැත්නම් Error එකක් දෙනවා
+                        Swal.fire({
+                            title: 'Not Found',
+                            text: 'Product with this barcode not found in inventory',
+                            icon: 'warning',
+                            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                        });
+                    }
                 }}
             />
         </div>
