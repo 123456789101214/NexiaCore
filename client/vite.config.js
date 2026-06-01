@@ -25,19 +25,22 @@ export default defineConfig({
         start_url: '/pos',  // 💡 Start directly at POS on launch
         icons: [
           {
-        src: '/icons/launchericon-192x192.png', // 💡 ඔයාගේ ෆෝල්ඩර් එකේ තියෙන නමමයි
-        sizes: '192x192',
-        type: 'image/png'
-      },
-      {
-        src: '/icons/launchericon-512x512.png', // 💡 ඔයාගේ ෆෝල්ඩර් එකේ තියෙන නමමයි
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable'
-      }
+            src: '/icons/launchericon-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/icons/launchericon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
         ]
       },
       workbox: {
+        // 🚀 1. FIX: Vercel PWA Error එක හදන්න Cache Limit එක 5MB කරනවා
+        maximumFileSizeToCacheInBytes: 5000000,
+        
         navigateFallbackDenylist: [/^\/downloads\//],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
@@ -48,10 +51,8 @@ export default defineConfig({
             options: {
               cacheName: 'products-cache',
               networkTimeoutSeconds: 5,
-              // Products cache:
+              // Products cache (Removed duplicate expiration key for safety):
               expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 },
-              // Customers cache:
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 4 }
             }
           },
           {
@@ -68,6 +69,22 @@ export default defineConfig({
       }
     })
   ],
+  
+  // 🚀 2. PRO FIX: ලොකු 2.1MB ෆයිල් එක කෑලි වලට කඩනවා (Code Splitting)
+  build: {
+    chunkSizeWarningLimit: 1500, // Warning limit එක ටිකක් වැඩි කළා
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
+          barcodeTools: ['html5-qrcode', 'jsbarcode'],
+          excelTools: ['xlsx'],
+          ui: ['lucide-react', 'sweetalert2', 'recharts']
+        }
+      }
+    }
+  },
+
   server: {
     proxy: {
       '/api': {
