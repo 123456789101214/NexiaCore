@@ -751,33 +751,44 @@ const POS = () => {
                 isOpen={isScannerOpen}
                 onClose={() => setIsScannerOpen(false)}
                 onScan={(scannedBarcode) => {
-                    // 1. Search Bar එකට Barcode එක දානවා (POS එකේ තියෙන්නේ setSearchQuery)
-                    setSearchQuery(scannedBarcode);
+                    // 1. Search Bar එක clear කරනවා
+                    setSearchQuery(''); 
                     
                     // 2. Barcode එකෙන් Product එක හොයනවා
                     const foundProduct = products.find(p => p.barcode === scannedBarcode);
                     
                     if (foundProduct) {
-                        // Product එක තිබ්බොත් කෙලින්ම Cart එකට Add කරනවා
-                        handleAddToCart(foundProduct);
-                        
-                        // Add වුණාට පස්සේ Search කොටුව ආයේ හිස් කරනවා ඊළඟ එක ගහන්න ලේසි වෙන්න
-                        setSearchQuery(''); 
-                        
-                        Swal.fire({
-                            title: 'Added!',
-                            text: `${foundProduct.name} added to cart`,
-                            icon: 'success',
-                            timer: 1000,
-                            showConfirmButton: false,
-                            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
-                        });
+                        // 🚀 PRO FIX: Stock එක තියෙනවද කියලා කලින්ම චෙක් කරනවා
+                        if (foundProduct.stock <= 0) {
+                            Swal.fire({
+                                title: 'Out of Stock!',
+                                text: `${foundProduct.name} is currently out of stock.`,
+                                icon: 'error', // රතු පාටින් Error එකක් දෙනවා
+                                timer: 2000,
+                                showConfirmButton: false,
+                                customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                            });
+                        } else {
+                            // බඩුව තියෙනවා නම් විතරක් Cart එකට දාලා Success Message එක දෙනවා
+                            handleAddToCart(foundProduct);
+                            
+                            Swal.fire({
+                                title: 'Added!',
+                                text: `${foundProduct.name} added to cart`,
+                                icon: 'success', // කොළ පාටින් Success එකක් දෙනවා
+                                timer: 1000,
+                                showConfirmButton: false,
+                                customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                            });
+                        }
                     } else {
-                        // බඩුව නැත්නම් Error එකක් දෙනවා
+                        // බඩුව Database එකේ නැත්නම්
                         Swal.fire({
                             title: 'Not Found',
                             text: 'Product with this barcode not found in inventory',
                             icon: 'warning',
+                            timer: 2000,
+                            showConfirmButton: false,
                             customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
                         });
                     }
