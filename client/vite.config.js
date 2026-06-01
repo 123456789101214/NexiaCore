@@ -10,7 +10,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true // 💡 මෙන්න මේක දැම්මම Dev mode එකෙත් PWA එක වැඩ කරන්න ගන්නවා
+        enabled: true
       },
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
@@ -22,7 +22,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
-        start_url: '/pos',  // 💡 Start directly at POS on launch
+        start_url: '/pos', 
         icons: [
           {
             src: '/icons/launchericon-192x192.png',
@@ -38,25 +38,20 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // 🚀 1. FIX: Vercel PWA Error එක හදන්න Cache Limit එක 5MB කරනවා
         maximumFileSizeToCacheInBytes: 5000000,
-        
         navigateFallbackDenylist: [/^\/downloads\//],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            // Cache API: products list (for offline search)
             urlPattern: /^https:\/\/.*\/api\/products/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'products-cache',
               networkTimeoutSeconds: 5,
-              // Products cache (Removed duplicate expiration key for safety):
               expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 },
             }
           },
           {
-            // Cache API: customers (for credit lookup)
             urlPattern: /^https:\/\/.*\/api\/customers/,
             handler: 'NetworkFirst',
             options: {
@@ -70,16 +65,28 @@ export default defineConfig({
     })
   ],
   
-  // 🚀 2. PRO FIX: ලොකු 2.1MB ෆයිල් එක කෑලි වලට කඩනවා (Code Splitting)
   build: {
-    chunkSizeWarningLimit: 1500, // Warning limit එක ටිකක් වැඩි කළා
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand'],
-          barcodeTools: ['html5-qrcode', 'jsbarcode'],
-          excelTools: ['xlsx'],
-          ui: ['lucide-react', 'sweetalert2', 'recharts']
+        // 🚀 CRITICAL FIX: Object එකක් වෙනුවට Function එකක් පාවිච්චි කිරීම
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Excel packages
+            if (id.includes('xlsx')) return 'excelTools';
+            
+            // Barcode & Camera packages
+            if (id.includes('html5-qrcode') || id.includes('jsbarcode')) return 'barcodeTools';
+            
+            // UI Components & Charts
+            if (id.includes('lucide-react') || id.includes('sweetalert2') || id.includes('recharts')) return 'uiTools';
+            
+            // Core React stuff
+            if (id.includes('react') || id.includes('zustand') || id.includes('react-router')) return 'vendor';
+            
+            // අනෙක් සියලුම 3rd party packages
+            return 'dependencies'; 
+          }
         }
       }
     }
@@ -88,7 +95,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000', // ⚠️ ඔයාගේ Node.js Backend එක දුවන Port එක (උදා: 5000 හෝ 8000) මෙතනට දෙන්න
+        target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
       }
