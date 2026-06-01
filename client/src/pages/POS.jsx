@@ -759,19 +759,48 @@ const POS = () => {
             </div>
             
             {!isCartOpen && cart.length > 0 && (
-                <div className="md:hidden fixed bottom-6 left-4 right-4 z-40 animate-in slide-in-from-bottom-5">
+                <div className="md:hidden fixed bottom-6 left-4 right-[5.5rem] z-40 animate-in slide-in-from-bottom-5">
                     <button
                         onClick={() => setIsCartOpen(true)}
-                        className="w-full bg-slate-900 dark:bg-blue-600 text-white p-4 rounded-[2rem] font-black text-sm shadow-2xl shadow-slate-900/30 dark:shadow-blue-900/30 flex items-center justify-between hover:bg-black dark:hover:bg-blue-700 active:scale-95 transition-all"
+                        className="w-full group p-[2px] rounded-[2rem] bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 shadow-2xl shadow-blue-600/40 transition-all duration-500 hover:scale-[1.02] active:scale-95 overflow-hidden"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-2 rounded-full relative">
-                                <ShoppingCart size={18} />
-                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full shadow-sm">{cart.length}</span>
+                        {/* Inner Div */}
+                        <div className="flex items-center justify-between bg-white dark:bg-slate-900 rounded-[2rem] px-3 py-2 transition-all duration-500 group-hover:bg-transparent dark:group-hover:bg-transparent">
+                            
+                            <div className="flex items-center">
+                                {/* Icon with Ping Animation & Floating Badge */}
+                                <div className="relative flex items-center justify-center shrink-0">
+                                    <span className="absolute inline-flex h-8 w-8 rounded-full bg-blue-500 opacity-20 animate-ping"></span>
+                                    <div className="relative bg-blue-50 dark:bg-blue-500/20 p-2.5 rounded-full group-hover:bg-white/20 transition-colors duration-500 shadow-sm">
+                                        <ShoppingCart size={18} className="text-blue-600 dark:text-blue-400 group-hover:text-white transition-colors duration-500" />
+                                        <span className="absolute -top-1.5 -right-1.5 bg-red-500 border-2 border-white dark:border-slate-900 group-hover:border-blue-600 text-white text-[10px] font-black w-5 h-5 flex items-center justify-center rounded-full shadow-md transition-colors duration-500">
+                                            {cart.length}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Text (Always Visible on Mobile) */}
+                                <div className="flex flex-col items-start ml-3">
+                                    <span className="text-slate-800 dark:text-slate-100 group-hover:text-white font-black text-xs uppercase tracking-widest transition-colors duration-500 whitespace-nowrap">
+                                        View Cart
+                                    </span>
+                                    <span className="text-slate-500 dark:text-slate-400 group-hover:text-blue-100 text-[9px] font-bold tracking-wider transition-colors duration-500 whitespace-nowrap">
+                                        Checkout 🚀
+                                    </span>
+                                </div>
                             </div>
-                            <span>VIEW CART</span>
+
+                            {/* Total Amount */}
+                            <div className="text-right flex flex-col justify-end ml-2">
+                                <span className="text-slate-400 dark:text-slate-500 group-hover:text-blue-200 text-[9px] font-black uppercase tracking-widest mb-0.5 transition-colors duration-500 whitespace-nowrap">
+                                    Total
+                                </span>
+                                <span className="text-blue-600 dark:text-blue-400 group-hover:text-white font-black text-sm leading-none transition-colors duration-500 tracking-tighter whitespace-nowrap">
+                                    Rs. {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+
                         </div>
-                        <span>Rs. {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </button>
                 </div>
             )}
