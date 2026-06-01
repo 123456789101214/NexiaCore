@@ -4,16 +4,17 @@ import useAuthStore from '../store/authStore';
 import usePosStore from '../store/posStore';
 import API from '../services/api';
 import Swal from 'sweetalert2';
-import { ShoppingCart, X, Search, Package, Trash2, Filter, Loader2, Tag, User, AlertCircle, WifiOff } from 'lucide-react'; 
+import { ShoppingCart, X, Search, Package, Trash2, Filter, Loader2, Tag, User, AlertCircle, WifiOff, Camera } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import PrintableReceipt from '../components/PrintableReceipt';
 import useOfflineStore from '../store/offlineStore';
 import db from '../db/nexiaDB';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 
 const POS = () => {
     // 🛡️ Auth & Role
     const user = useAuthStore((state) => state.user);
-    
+
     // 🌐 Zustand Offline State
     const isOnline = useOfflineStore((state) => state.isOnline);
 
@@ -26,7 +27,7 @@ const POS = () => {
     const getTotal = usePosStore((state) => state.getTotal);
 
     const [products, setProducts] = useState([]);
-    const [customers, setCustomers] = useState([]); 
+    const [customers, setCustomers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
@@ -43,6 +44,8 @@ const POS = () => {
     const barcodeInputRef = useRef(null);
     const componentRef = useRef();
     const scrollRef = useRef(null);
+
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
 
     // Drag to scroll states
     const [isDragging, setIsDragging] = useState(false);
@@ -74,18 +77,18 @@ const POS = () => {
             console.log("Offline mode detected, loading directly from cache...");
             const cachedProducts = await db.products.toArray();
             const cachedCustomers = await db.customers.toArray();
-            
+
             if (cachedProducts.length > 0) {
                 const availableProducts = cachedProducts.filter(p => p.status === 'active');
                 setProducts(availableProducts);
                 setCustomers(cachedCustomers);
             } else {
                 Swal.fire({
-      icon: 'warning',
-      title: 'No Offline Cache',
-      text: 'Please connect to internet once to cache data for offline use.',
-      confirmButtonText: 'OK'
-    });
+                    icon: 'warning',
+                    title: 'No Offline Cache',
+                    text: 'Please connect to internet once to cache data for offline use.',
+                    confirmButtonText: 'OK'
+                });
             }
             setIsLoading(false);
             barcodeInputRef.current?.focus();
@@ -96,7 +99,7 @@ const POS = () => {
         try {
             const [productRes, customerRes] = await Promise.all([
                 API.get('/products'),
-                API.get('/customers') 
+                API.get('/customers')
             ]);
 
             if (productRes.data.success) {
@@ -116,8 +119,8 @@ const POS = () => {
     };
 
     useEffect(() => {
-    fetchData();
-}, [isOnline]);
+        fetchData();
+    }, [isOnline]);
 
     useEffect(() => {
         const handleDiscountApplied = () => {
@@ -231,7 +234,7 @@ const POS = () => {
         }).then((result) => {
             if (result.isConfirmed) {
                 clearCartAction();
-                setSelectedCustomer(null); 
+                setSelectedCustomer(null);
                 barcodeInputRef.current?.focus();
             }
         });
@@ -247,7 +250,7 @@ const POS = () => {
             setSelectedCustomer(null);
             setIsCartOpen(false);
             barcodeInputRef.current?.focus();
-            fetchData(); 
+            fetchData();
         }
     });
 
@@ -326,7 +329,7 @@ const POS = () => {
             amountPaid = Number(enteredAmount);
             balance = amountPaid - totalAmount;
         } else if (paymentMethod === 'Credit') {
-            amountPaid = 0; 
+            amountPaid = 0;
             balance = 0;
         }
 
@@ -403,8 +406,8 @@ const POS = () => {
         } catch (error) {
             console.error(error);
             Swal.fire({
-                title: 'Error', 
-                text: error.response?.data?.error || 'Order processing failed', 
+                title: 'Error',
+                text: error.response?.data?.error || 'Order processing failed',
                 icon: 'error',
                 customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
             });
@@ -444,6 +447,13 @@ const POS = () => {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsScannerOpen(true)}
+                            className="bg-slate-800 hover:bg-slate-700 text-white p-5 rounded-[1.5rem] shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center justify-center"
+                        >
+                            <Camera size={24} />
+                        </button>
                     </div>
 
                     {/* 💡 Offline Indicator Banner */}
@@ -578,7 +588,7 @@ const POS = () => {
                                 <User size={18} className="text-slate-400 dark:text-slate-500 mr-2 shrink-0" />
                                 <input
                                     type="text"
-                                    placeholder="Search by Name or Phone (eg: 071...)" 
+                                    placeholder="Search by Name or Phone (eg: 071...)"
                                     className="w-full bg-transparent outline-none text-sm font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
                                     value={customerSearch}
                                     onChange={(e) => {
@@ -733,10 +743,18 @@ const POS = () => {
                         products={products}
                         customerName={billData.customerName}
                         customerPhone={selectedCustomer?.phone}
-                        customerNic={selectedCustomer?.nic} 
+                        customerNic={selectedCustomer?.nic}
                     />
                 )}
             </div>
+            <BarcodeScannerModal
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                onScan={(scannedText) => {
+                    setSearchTerm(scannedText);
+                    lookupBarcode(scannedText); // AI එකට යවනවා
+                }}
+            />
         </div>
     );
 };

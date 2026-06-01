@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
-import { grnService } from '../services/grnService'; 
+import { grnService } from '../services/grnService';
 import useAuthStore from '../store/authStore';
-import { 
-    Search, Plus, Trash2, ShoppingCart, User, 
-    Calculator, Save, Loader2, FileText, AlertCircle 
+import { useBarcodeAutoFill } from '../hooks/useBarcodeAutoFill';
+import BarcodeAutoFillBadge from '../components/BarcodeAutoFillBadge';
+import {
+    Search, Plus, Trash2, ShoppingCart, User,
+    Calculator, Save, Loader2, FileText, AlertCircle, Camera
 } from 'lucide-react';
 import Swal from 'sweetalert2';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 
 const NewPurchase = () => {
     const user = useAuthStore((state) => state.user);
@@ -15,10 +18,10 @@ const NewPurchase = () => {
 
     // 🛡️ ROLE GUARD: Level 1 Security
     const isAuthorized = ['owner', 'admin', 'manager'].includes(user?.role);
-
+    const { lookupState, lookupBarcode, resetLookup } = useBarcodeAutoFill();
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
+
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
     const [selectedSupplier, setSelectedSupplier] = useState('');
@@ -26,12 +29,13 @@ const NewPurchase = () => {
     const [cart, setCart] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [paymentInfo, setPaymentInfo] = useState({ paidAmount: 0, paymentType: 'Cash' });
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
 
     useEffect(() => {
         if (!isAuthorized) {
             Swal.fire({
-                title: 'Access Denied', 
-                text: 'Unauthorized module access.', 
+                title: 'Access Denied',
+                text: 'Unauthorized module access.',
                 icon: 'error',
                 customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
             });
@@ -46,13 +50,13 @@ const NewPurchase = () => {
                     API.get('/suppliers'),
                     API.get('/products')
                 ]);
-                
+
                 if (supplierRes.data.success) setSuppliers(supplierRes.data.data);
                 if (productRes.data.success) setProducts(productRes.data.data);
             } catch (error) {
                 Swal.fire({
-                    title: 'Sync Error', 
-                    text: 'Failed to load master records.', 
+                    title: 'Sync Error',
+                    text: 'Failed to load master records.',
                     icon: 'error',
                     customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
                 });
@@ -67,8 +71,8 @@ const NewPurchase = () => {
     const searchResults = useMemo(() => {
         if (!searchTerm.trim()) return [];
         const lowerTerm = searchTerm.toLowerCase();
-        return products.filter(p => 
-            p.name.toLowerCase().includes(lowerTerm) || 
+        return products.filter(p =>
+            p.name.toLowerCase().includes(lowerTerm) ||
             (p.barcode && p.barcode.includes(searchTerm)) ||
             (p.sku && p.sku.toLowerCase().includes(lowerTerm))
         ).slice(0, 8); // Performance: Limit search results view
@@ -118,8 +122,8 @@ const NewPurchase = () => {
     }, [paymentInfo.paymentType, totalAmount]);
 
     const handleSaveGRN = async () => {
-        if (!selectedSupplier) return Swal.fire({title: 'Field Required', text: 'Supplier must be selected.', icon: 'warning', customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }});
-        if (cart.length === 0) return Swal.fire({title: 'List Empty', text: 'Add items to inward.', icon: 'warning', customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }});
+        if (!selectedSupplier) return Swal.fire({ title: 'Field Required', text: 'Supplier must be selected.', icon: 'warning', customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' } });
+        if (cart.length === 0) return Swal.fire({ title: 'List Empty', text: 'Add items to inward.', icon: 'warning', customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' } });
 
         // Confirm Action (Crucial for SaaS data integrity)
         const result = await Swal.fire({
@@ -155,20 +159,20 @@ const NewPurchase = () => {
             };
 
             const res = await grnService.createGRN(payload);
-            
+
             if (res.data.success) {
-                await Swal.fire({ 
-                    title: 'SUCCESS!', 
-                    text: `Stock Updated. GRN #${res.data.data.grnNumber}`, 
-                    icon: 'success', 
-                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2.5rem]' } 
+                await Swal.fire({
+                    title: 'SUCCESS!',
+                    text: `Stock Updated. GRN #${res.data.data.grnNumber}`,
+                    icon: 'success',
+                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2.5rem]' }
                 });
                 navigate('/grn-history');
             }
         } catch (error) {
             Swal.fire({
-                title: 'Operation Failed', 
-                text: error.response?.data?.error || 'Inventory update aborted.', 
+                title: 'Operation Failed',
+                text: error.response?.data?.error || 'Inventory update aborted.',
                 icon: 'error',
                 customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
             });
@@ -197,14 +201,14 @@ const NewPurchase = () => {
                             <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1 ml-1 transition-colors">Goods Received Note (GRN)</p>
                         </div>
                         <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 px-5 py-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-500/50 transition-all">
-                             <FileText size={18} className="text-slate-400 dark:text-slate-500" />
-                             <input 
-                                type="text" 
-                                placeholder="SUPPLIER INV #" 
+                            <FileText size={18} className="text-slate-400 dark:text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="SUPPLIER INV #"
                                 className="bg-transparent border-none outline-none font-black text-xs text-slate-700 dark:text-slate-200 dark:placeholder-slate-500 w-32 transition-colors"
                                 value={supplierInvoiceNumber}
                                 onChange={(e) => setSupplierInvoiceNumber(e.target.value)}
-                             />
+                            />
                         </div>
                     </div>
 
@@ -221,14 +225,55 @@ const NewPurchase = () => {
                                 {suppliers.map(s => <option key={s._id} value={s._id} className="dark:bg-slate-800">{s.name.toUpperCase()}</option>)}
                             </select>
                         </div>
-                        <div className="relative group">
-                            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors" size={20} />
-                            <input
-                                className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800/50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500/50 font-bold text-sm outline-none text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 transition-all"
-                                placeholder="Scan Barcode or Search Product..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                        {/* Search / Scan Bar in GRN */}
+                        <div className="relative group flex items-center gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+                                <input
+                                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-none rounded-[1.5rem] focus:ring-2 focus:ring-blue-500 font-bold text-sm outline-none text-slate-800 placeholder-slate-400 transition-all"
+                                    placeholder="Scan Barcode or Search Product..."
+                                    value={searchTerm}
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                        lookupBarcode(e.target.value);
+                                    }}
+                                />
+                                <div className="absolute top-full left-0 right-0 z-50 mt-2">
+                                    <BarcodeAutoFillBadge
+                                        lookupState={lookupState}
+                                        onApply={(productData) => {
+                                            // මේ බඩුව කලින් Cart එකේ තියෙනවද කියලා බලනවා
+                                            if (cart.find(item => item.name === productData.name)) {
+                                                Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: 'Already in list', showConfirmButton: false, timer: 1000 });
+                                                return;
+                                            }
+
+                                            // සිස්ටම් එකේ නැති අලුත් බඩුවක් නම්, කෙලින්ම නමයි Barcode එකයි එක්ක Cart එකට දානවා
+                                            setCart([...cart, {
+                                                productId: `NEW_${productData.barcode || Date.now()}`, // අලුත් අයිටම් එකක් කියලා අඳුරගන්න Temp ID එකක් දෙනවා
+                                                name: productData.name,
+                                                quantity: 1,
+                                                unitCost: 0,
+                                                sellingPrice: 0,
+                                                expiryDate: '',
+                                            }]);
+
+                                            setSearchTerm('');
+                                            resetLookup();
+                                        }}
+                                        onDismiss={resetLookup}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* 📷 කැමරා බටන් එක */}
+                            <button
+                                type="button"
+                                onClick={() => setIsScannerOpen(true)}
+                                className="bg-slate-800 hover:bg-slate-700 text-white p-5 rounded-[1.5rem] shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center justify-center"
+                            >
+                                <Camera size={24} />
+                            </button>
                         </div>
                     </div>
 
@@ -309,7 +354,7 @@ const NewPurchase = () => {
                     <div className="absolute -top-10 -right-10 opacity-10">
                         <Calculator size={200} />
                     </div>
-                    
+
                     <h3 className="text-xl font-black mb-10 flex items-center gap-3 uppercase">
                         <span className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[10px]">01</span> Settlement
                     </h3>
@@ -330,9 +375,9 @@ const NewPurchase = () => {
                             <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-4 block">Payment Mode</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {['Cash', 'Credit', 'Partial'].map(type => (
-                                    <button 
+                                    <button
                                         key={type}
-                                        onClick={() => setPaymentInfo({...paymentInfo, paymentType: type})}
+                                        onClick={() => setPaymentInfo({ ...paymentInfo, paymentType: type })}
                                         className={`py-3 rounded-2xl text-[10px] font-black uppercase transition-all border ${paymentInfo.paymentType === type ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
                                     >
                                         {type}
@@ -348,7 +393,7 @@ const NewPurchase = () => {
                                     type="number"
                                     className="w-full py-5 px-8 bg-slate-800 border border-slate-700 rounded-[1.5rem] font-black text-2xl text-emerald-400 outline-none focus:ring-2 focus:ring-emerald-500"
                                     value={paymentInfo.paidAmount}
-                                    onChange={(e) => setPaymentInfo({...paymentInfo, paidAmount: Number(e.target.value) || 0})}
+                                    onChange={(e) => setPaymentInfo({ ...paymentInfo, paidAmount: Number(e.target.value) || 0 })}
                                 />
                             </div>
                         )}
@@ -366,11 +411,19 @@ const NewPurchase = () => {
                         disabled={cart.length === 0 || isSubmitting}
                         className="w-full mt-12 py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-[2rem] shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
                     >
-                        {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />} 
+                        {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
                         {isSubmitting ? 'PROCESSING...' : 'SAVE GRN & UPDATE STOCK'}
                     </button>
                 </div>
             </div>
+            <BarcodeScannerModal
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                onScan={(scannedText) => {
+                    setSearchTerm(scannedText);
+                    lookupBarcode(scannedText); // AI එකට යවනවා
+                }}
+            />
         </div>
     );
 };

@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import API from '../services/api';
-import { X, Package, Barcode } from 'lucide-react';
+import { X, Package, Barcode, Camera } from 'lucide-react';
 import Swal from 'sweetalert2';
+import BarcodeAutoFillBadge from './BarcodeAutoFillBadge';
+import { useBarcodeAutoFill } from '../hooks/useBarcodeAutoFill';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 
 const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
     const [imageFile, setImageFile] = useState(null);
@@ -10,6 +13,8 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
         name: '', barcode: '', category: 'General',
         buyingPrice: '', price: '', stock: 0, unit: 'pcs'
     });
+    const { lookupState, lookupBarcode, resetLookup } = useBarcodeAutoFill();
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
 
     // Edit කරනවා නම් පරණ ඩේටා ලෝඩ් කිරීම
     useEffect(() => {
@@ -48,69 +53,74 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
         }
     };
 
-const handleSaveProduct = async (e) => {
-    if (e) e.preventDefault();
-    
-    // 1. FormData එක හදනවා
-    const data = new FormData();
-    Object.keys(formData).forEach(key => {
-        if (formData[key] !== null && formData[key] !== undefined) {
-            data.append(key, formData[key]);
+    const handleSaveProduct = async (e) => {
+        if (e) e.preventDefault();
+
+        // 1. FormData එක හදනවා
+        const data = new FormData();
+        Object.keys(formData).forEach(key => {
+            // 'image' එක මෙතනින් යවන්නේ නෑ, ඒක පල්ලෙහායින් වෙනම හසුරුවනවා
+            if (formData[key] !== null && formData[key] !== undefined && key !== 'image') {
+                data.append(key, formData[key]);
+            }
+        });
+
+        // 2. 💡 IMAGE LOGIC FIX: Image File එකක්ද, නැත්නම් AI එකෙන් ආපු URL එකක්ද කියලා බලලා යවනවා
+        if (imageFile) {
+            // PC එකෙන් අලුත් ෆොටෝ එකක් දැම්මොත්
+            data.append('image', imageFile);
+        } else if (typeof formData.image === 'string') {
+            // AI Auto-Fill එකෙන් String URL එකක් ආවොත්, ඒක 'imageUrl' කියලා Text එකක් විදිහට යවනවා
+            data.append('imageUrl', formData.image);
         }
-    });
 
-    // 2. Image File එක තියෙනවා නම් ඒකත් දානවා
-    if (imageFile) {
-        data.append('image', imageFile);
-    }
+        try {
+            // 🛡️ CRITICAL FIX: headers කෑල්ල අනිවාර්යයෙන්ම දාන්න ඕනේ!
+            const config = {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            };
 
-    try {
-        // 🛡️ CRITICAL FIX: headers කෑල්ල අනිවාර්යයෙන්ම දාන්න ඕනේ!
-        const config = {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        };
+            const res = editData
+                ? await API.put(`/products/${editData._id}`, data, config)
+                : await API.post('/products', data, config);
 
-        const res = editData
-            ? await API.put(`/products/${editData._id}`, data, config)
-            : await API.post('/products', data, config);
+            if (res.data.success) {
+                Swal.fire('Success!', 'Product saved successfully', 'success');
+                onSuccess(); // ඉන්වෙන්ටරි ලිස්ට් එක රිෆ්‍රෙෂ් කරන්න
+                onClose();   // ඩ්‍රෝවර් එක වහන්න
+            }
+        } catch (error) {
+            console.error("Save Product Error:", error);
 
-        if (res.data.success) {
-            Swal.fire('Success!', 'Product saved successfully', 'success');
-            onSuccess(); // ඉන්වෙන්ටරි ලිස්ට් එක රිෆ්‍රෙෂ් කරන්න
-            onClose();   // ඩ්‍රෝවර් එක වහන්න
+            // 👑 ARCHITECT LEVEL ALERT: මැනුවල් ඇඩ් කරද්දී ලිමිට් පැන්නොත් වදින ඇලර්ට් එක
+            if (error.response?.status === 403) {
+                Swal.fire({
+                    title: '👑 Product Limit Reached',
+                    text: error.response?.data?.error || 'You have reached the maximum number of products allowed for your current plan.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: '⚡ Upgrade Plan Now',
+                    cancelButtonText: 'Maybe Later',
+                    confirmButtonColor: '#2563eb',
+                    cancelButtonColor: '#64748b',
+                    customClass: { popup: 'rounded-[2rem] shadow-2xl p-6' }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        if (typeof onClose === 'function') onClose(); // මුලින්ම Drawer එක වහනවා
+                        navigate('/settings'); // ඊටපස්සේ අප්ග්‍රේඩ් පේජ් එකට යවනවා
+                    }
+                });
+            } else {
+                // වෙනත් සාමාන්‍ය ඉමේජ් සයිස්/නෙට්වර්ක් අවුලක් ආවොත් විතරක් මේක පෙන්වනවා
+                Swal.fire({
+                    title: 'Error',
+                    text: error.response?.data?.message || 'Failed to save product. Check the image format or size.',
+                    icon: 'error',
+                    customClass: { popup: 'rounded-[2rem]' }
+                });
+            }
         }
-    } catch (error) {
-        console.error("Save Product Error:", error);
-        
-        // 👑 ARCHITECT LEVEL ALERT: මැනුවල් ඇඩ් කරද්දී ලිමිට් පැන්නොත් වදින ඇලර්ට් එක
-        if (error.response?.status === 403) {
-            Swal.fire({
-                title: '👑 Product Limit Reached',
-                text: error.response?.data?.error || 'You have reached the maximum number of products allowed for your current plan.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: '⚡ Upgrade Plan Now',
-                cancelButtonText: 'Maybe Later',
-                confirmButtonColor: '#2563eb',
-                cancelButtonColor: '#64748b',
-                customClass: { popup: 'rounded-[2rem] shadow-2xl p-6' }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    if (typeof onClose === 'function') onClose(); // මුලින්ම Drawer එක වහනවා
-                    navigate('/settings'); // ඊටපස්සේ අප්ග්‍රේඩ් පේජ් එකට යවනවා
-                }
-            });
-        } else {
-            // වෙනත් සාමාන්‍ය ඉමේජ් සයිස්/නෙට්වර්ක් අවුලක් ආවොත් විතරක් මේක පෙන්වනවා
-            Swal.fire({
-                title: 'Error',
-                text: error.response?.data?.message || 'Failed to save product. Check the image format or size.',
-                icon: 'error',
-                customClass: { popup: 'rounded-[2rem]' }
-            });
-        }
-    }
-};
+    };
 
     return (
         <div className={`fixed inset-0 z-[100] overflow-hidden transition-all duration-500 ${isOpen ? 'visible' : 'invisible'}`}>
@@ -144,17 +154,50 @@ const handleSaveProduct = async (e) => {
                                 </select>
                             </div>
                             {/* Barcode (REF USED HERE) */}
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Barcode</label>
-                                <input
-                                    type="text"
-                                    name="barcode" // මේ නම formData එකේ තියෙන නමට සමාන විය යුතුයි
-                                    value={formData.barcode}
-                                    onChange={handleInputChange} // දැන් මේක අඳුරගන්න පුළුවන් 🚀
-                                    placeholder="Scan Barcode here..."
-                                    className="w-full px-5 py-4 bg-blue-50/50 border-none rounded-[1.25rem] focus:ring-2 focus:ring-blue-500 font-bold text-blue-700 transition-all"
+                            {/* Barcode Input with Camera Button */}
+<div className="space-y-2">
+    <label className="text-[10px] font-black text-blue-600 uppercase tracking-widest ml-1">Barcode</label>
+    <div className="relative">
+        <input
+            type="text"
+            name="barcode"
+            value={formData.barcode}
+            onChange={(e) => {
+                handleInputChange(e);
+                lookupBarcode(e.target.value); 
+            }}
+            placeholder="Scan Barcode here..."
+            className="w-full pl-5 pr-14 py-4 bg-blue-50/50 border-none rounded-[1.25rem] focus:ring-2 focus:ring-blue-500 font-bold text-blue-700 transition-all"
+        />
+        {/* 📷 කැමරා බටන් එක */}
+        <button
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95"
+            title="Scan with Camera"
+        >
+            <Camera size={18} />
+        </button>
+    </div>
+
+    {/* AI Auto-Fill Badge (කලින් තිබ්බ එකමයි) */}
+    <BarcodeAutoFillBadge
+                                    lookupState={lookupState}
+                                    onApply={(productData) => {
+                                        // Badge එකේ Auto-Fill එබුවම Form එක ඉබේම පිරෙනවා
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            barcode: productData.barcode || prev.barcode,
+                                            name: productData.name || prev.name,
+                                            category: productData.category || prev.category,
+                                            image: productData.image || prev.image
+                                        }));
+                                        resetLookup();
+                                    }}
+                                    onDismiss={resetLookup}
                                 />
-                            </div>
+
+</div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -205,9 +248,13 @@ const handleSaveProduct = async (e) => {
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Product Image</label>
                                 <div className="flex items-center gap-4">
                                     <div className="w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden">
-                                        {/* imagePreview එකේ URL එකක් හරි, local blob එකක් හරි තියෙනවා නම් ඒක පෙන්වනවා */}
-                                        {imagePreview ? (
-                                            <img src={imagePreview} className="w-full h-full object-cover" />
+                                        {/* 💡 අලුත් ලොජික් එක: API URL එකක්ද (String) නැත්නම් Local Preview එකක්ද කියලා බලලා පෙන්වනවා */}
+                                        {(formData.image || imagePreview) ? (
+                                            <img
+                                                src={typeof formData.image === 'string' ? formData.image : imagePreview}
+                                                className="w-full h-full object-cover"
+                                                alt="Product Preview"
+                                            />
                                         ) : (
                                             <Package size={24} className="text-slate-300" />
                                         )}
@@ -229,6 +276,16 @@ const handleSaveProduct = async (e) => {
                     </div>
                 </div>
             </section>
+            {/* Barcode Scanner Modal */}
+            <BarcodeScannerModal
+                isOpen={isScannerOpen}
+                onClose={() => setIsScannerOpen(false)}
+                onScan={(scannedText) => {
+                    // කැමරාවෙන් ස්කෑන් වුණ ගමන් Form එකට Data එක දාලා API එකටත් යවනවා! 🚀
+                    setFormData(prev => ({ ...prev, barcode: scannedText }));
+                    lookupBarcode(scannedText);
+                }}
+            />
         </div>
     );
 };

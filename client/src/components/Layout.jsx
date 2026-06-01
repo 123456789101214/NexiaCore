@@ -9,7 +9,7 @@ import useOfflineStore from '../store/offlineStore';
 import PWAInstallPrompt from './PWAInstallPrompt'; // We will create this next
 import {
   LayoutDashboard, Package, ShoppingCart, Users, LogOut, Store, Menu, X,
-  BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2
+  BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2, Zap
 } from 'lucide-react';
 
 const Layout = () => {
@@ -55,6 +55,7 @@ const Layout = () => {
       { name: 'Staff Management', path: '/staff', icon: <Users size={20} />, roles: ['owner', 'admin'] },
       { name: 'Reports', path: '/sales-history', icon: <BarChart2 size={20} />, roles: ['owner', 'admin', 'manager'], locked: checkFeatureLocked('analytics') },
       { name: 'Settings', path: '/settings', icon: <Settings size={20} />, roles: ['owner', 'admin'] },
+      // { name: 'Quick Setup Wizard',path: '/inventory/quick-setup',icon: <Zap size={20} />,roles: ['owner', 'admin'] }
     ];
 
     const currentRole = user?.role?.toLowerCase() || '';

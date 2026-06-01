@@ -98,7 +98,7 @@ const AppDownloadModal = () => {
                     {/* Download Button */}
                     <a
                         href="/downloads/NexiaCore_POS_v1.0.1.apk"
-                        download="NexiaCore_POS_v1.0.1.apk"
+                        download="NexiaCore_POS_v1.0.1.apk" 
                         target="_blank"
                         rel="external noopener noreferrer" // ⚠️ මේකෙන් කියන්නේ React එකට මේක අල්ලන්න එපා කියලා
                         onClick={() => setTimeout(() => setIsOpen(false), 1000)}

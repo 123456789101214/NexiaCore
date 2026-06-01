@@ -1,19 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import API from '../services/api';
 import useAuthStore from '../store/authStore';
-import usePlanStore from '../store/planStore'; 
-import { Package, Plus, Search, Edit, Trash2, Barcode, Download, Loader2, Lock } from 'lucide-react';
+import ExcelBulkUpload from '../components/ExcelBulkUpload';
+import usePlanStore from '../store/planStore';
+import { Package, Plus, Search, Edit, Trash2, Barcode, Download, Loader2, Lock, Upload } from 'lucide-react';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import { useNavigate } from 'react-router-dom';
+import BulkUploadModal from '../components/BulkUploadModal';
+import { useBarcodeAutoFill } from '../hooks/useBarcodeAutoFill';
+import BarcodeAutoFillBadge from '../components/BarcodeAutoFillBadge';
 
 const Inventory = () => {
     const user = useAuthStore((state) => state.user);
     const isManager = user?.role === 'admin' || user?.role === 'owner';
-
+    const [showBulkUpload, setShowBulkUpload] = useState(false);
     const navigate = useNavigate();
-    
+    const { lookupState, lookupBarcode, resetLookup } = useBarcodeAutoFill();
+    const { hasFeature } = usePlanStore();
+
     // 💡 STRICT REACTIVITY: මේකෙන් කෙලින්ම feature එකේ true/false අගය ගන්නවා. 
     // Data ආපු ගමන් UI එක ඉබේම Update වෙනවා!
     const hasBulkUpload = usePlanStore((state) => state.features?.bulkUpload);
@@ -22,7 +28,7 @@ const Inventory = () => {
     const [loading, setLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState(null);
 
@@ -35,8 +41,8 @@ const Inventory = () => {
         } catch (error) {
             console.error("Error fetching products:", error);
             Swal.fire({
-                title: 'Error', 
-                text: 'Failed to fetch inventory', 
+                title: 'Error',
+                text: 'Failed to fetch inventory',
                 icon: 'error',
                 customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
             });
@@ -76,10 +82,10 @@ const Inventory = () => {
                 try {
                     const res = await API.delete(`/products/${id}`);
                     if (res.data.success) {
-                        Swal.fire({ 
-                            title: 'Archived!', 
-                            icon: 'success', 
-                            timer: 1500, 
+                        Swal.fire({
+                            title: 'Archived!',
+                            icon: 'success',
+                            timer: 1500,
                             showConfirmButton: false,
                             customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
                         });
@@ -87,8 +93,8 @@ const Inventory = () => {
                     }
                 } catch (error) {
                     Swal.fire({
-                        title: 'Error!', 
-                        text: 'Something went wrong.', 
+                        title: 'Error!',
+                        text: 'Something went wrong.',
                         icon: 'error',
                         customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
                     });
@@ -102,32 +108,49 @@ const Inventory = () => {
 
         Swal.fire({
             title: 'Clear Entire Inventory?',
-            text: "This will move ALL your active products to archive! This cannot be undone easily.",
-            icon: 'error',
+            text: "This will move ALL your active products to archive and delete their cloud images! This cannot be undone.",
+            icon: 'warning', // 💡 වෙනස් කළා: Error එකකට වඩා Warning එකක් දෙන එක UX එකට හොඳයි
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
             confirmButtonText: 'Yes, Clear All!',
-            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem] shadow-2xl' }
         }).then(async (result) => {
             if (result.isConfirmed) {
+
+                // ━━━ ⏳ 1. SHOW PROFESSIONAL LOADING ANIMATION ━━━
+                Swal.fire({
+                    title: 'Archiving Products...',
+                    html: '<span class="text-sm text-slate-500 dark:text-slate-400">Please wait. Deleting product images from the cloud.<br><b class="text-blue-500">Do not close this window.</b></span>',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem] shadow-2xl' },
+                    didOpen: () => {
+                        Swal.showLoading(); // 💡 SweetAlert එකේ අයිකන් එක Spinner එකක් බවට පත් කරනවා
+                    }
+                });
+
+                // ━━━ 🌐 2. CALL API ━━━
                 try {
                     const res = await API.put('/products/bulk-archive-all');
                     if (res.data.success) {
+                        // ━━━ ✅ 3. SHOW SUCCESS MESSAGE (This replaces the loading alert) ━━━
                         Swal.fire({
-                            title: 'Cleared!', 
-                            text: res.data.message, 
+                            title: 'Cleared!',
+                            text: res.data.message,
                             icon: 'success',
-                            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem] shadow-2xl' }
                         });
                         fetchProducts();
                     }
                 } catch (error) {
+                    // ━━━ ❌ 4. SHOW ERROR MESSAGE (This replaces the loading alert) ━━━
                     Swal.fire({
-                        title: 'Error!', 
-                        text: 'Failed to clear products.', 
+                        title: 'Error!',
+                        text: 'Failed to clear products. Please check your connection.',
                         icon: 'error',
-                        customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+                        customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem] shadow-2xl' }
                     });
                 }
             }
@@ -155,16 +178,16 @@ const Inventory = () => {
                 const res = await API.post('/products/bulk-upload', { products: jsonData });
                 if (res.data.success) {
                     Swal.fire({
-                        title: 'Success!', 
-                        text: res.data.message, 
+                        title: 'Success!',
+                        text: res.data.message,
                         icon: 'success',
                         customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
                     });
-                    fetchProducts(); 
+                    fetchProducts();
                 }
             } catch (error) {
                 console.error("Excel upload error:", error);
-                
+
                 // 👑 ARCHITECT LEVEL ALERT: බල්ක් අප්ලෝඩ් එකේදී ලිමිට් පැන්නොත් වදින ඇලර්ට් එක
                 if (error.response?.status === 403) {
                     Swal.fire({
@@ -174,12 +197,12 @@ const Inventory = () => {
                         showCancelButton: true,
                         confirmButtonText: '🚀 Upgrade to Pro',
                         cancelButtonText: 'Close',
-                        confirmButtonColor: '#2563eb', 
+                        confirmButtonColor: '#2563eb',
                         cancelButtonColor: '#64748b',
                         customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem] shadow-2xl p-6' }
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            navigate('/settings'); 
+                            navigate('/settings');
                         }
                     });
                 } else {
@@ -232,41 +255,51 @@ const Inventory = () => {
                         >
                             <Plus size={20} /> Add Product
                         </button>
-                        
-                        {/* 🛑 PRO FIX: Reactivity Fixed Bulk Upload Label */}
-                        <label 
+
+                        {['owner', 'admin'].includes(user?.role) && (
+                            <button
+                                onClick={() => setShowBulkUpload(true)}
+                                className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${!hasBulkUpload
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-80'
+                                : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm dark:shadow-none'
+                                }`}
+                            >
+                                <Upload size={16} />
+                                Smart Bulk Upload
+                                {!hasFeature('bulkUpload') && (
+                                    <span className="bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[9px] px-1.5 py-0.5 rounded font-black">PRO</span>
+                                )}
+                            </button>
+                        )}
+
+                        {/* <button
                             onClick={(e) => {
                                 if (!hasBulkUpload) {
-                                    e.preventDefault(); 
+                                    e.preventDefault();
                                     Swal.fire({
                                         icon: 'warning',
                                         title: 'Pro Feature Locked',
-                                        text: 'Upgrade to Pro or Enterprise to unlock Excel Bulk Import.',
+                                        text: 'Upgrade to Pro or Enterprise to unlock Excel & ZIP Bulk Import.',
                                         confirmButtonText: 'Upgrade to Pro',
                                         confirmButtonColor: '#2563eb',
                                         showCancelButton: true,
                                         cancelButtonText: 'Close',
                                         customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
                                     }).then((result) => {
-                                        if (result.isConfirmed) navigate('/settings'); 
+                                        if (result.isConfirmed) navigate('/settings');
                                     });
+                                    return;
                                 }
+                                setShowBulkUpload(true);
                             }}
-                            className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
-                                !hasBulkUpload 
-                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-80' 
-                                    : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm dark:shadow-none'
-                            }`}
+                            className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${!hasBulkUpload
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 opacity-80'
+                                : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 shadow-sm dark:shadow-none'
+                                }`}
                         >
-                            {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />} 
-                            {isUploading ? 'Importing...' : 'Import Excel'}
-                            
+                            <Download size={20} /> Import Excel + Images
                             {!hasBulkUpload && <Lock size={14} className="text-amber-500 ml-1" />}
-                            
-                            {hasBulkUpload && (
-                                <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleExcelUpload} disabled={isUploading} />
-                            )}
-                        </label>
+                        </button> */}
 
                         <button
                             onClick={handleBulkDelete}
@@ -360,7 +393,7 @@ const Inventory = () => {
                         </tbody>
                     </table>
                     {filteredProducts.length === 0 && (
-                         <div className="p-8 text-center text-slate-400 dark:text-slate-500 font-medium transition-colors">No products found.</div>
+                        <div className="p-8 text-center text-slate-400 dark:text-slate-500 font-medium transition-colors">No products found.</div>
                     )}
                 </div>
             </div>
@@ -373,6 +406,19 @@ const Inventory = () => {
                     editData={editingProduct}
                 />
             )}
+            {isManager && (
+                <BulkUploadModal
+                    isOpen={showBulkUpload}
+                    onClose={() => setShowBulkUpload(false)}
+                    onSuccess={() => { setShowBulkUpload(false); fetchProducts(); }}
+                />
+            )}
+
+            <ExcelBulkUpload
+                isOpen={showBulkUpload}
+                onClose={() => setShowBulkUpload(false)}
+                onSuccess={() => { setShowBulkUpload(false); fetchProducts(); }} // fetchProducts function එක කෝල් කරන්න
+            />
         </div>
     );
 };

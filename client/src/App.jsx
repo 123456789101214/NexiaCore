@@ -22,6 +22,7 @@ import SuperAdminRoute from "./components/SuperAdminRoute"; // අලුත් R
 import useThemeStore from './store/themeStore';
 import OnlineGuard from './components/OnlineGuard';
 import AppDownloadModal from './components/AppDownloadModal';
+import QuickSetup from './pages/QuickSetup';
 
 const ProtectedRoute = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -65,6 +66,7 @@ function App() {
             <Route path="customers" element={<OnlineGuard><Customers /></OnlineGuard>} />
             <Route path="settings" element={<OnlineGuard><Settings /></OnlineGuard>} />
             <Route path="staff" element={<OnlineGuard><StaffManagement /></OnlineGuard>} />
+            <Route path="inventory/quick-setup" element={<QuickSetup />} />
 
             {/* 🔥 SUPER ADMIN PROTECTED ROUTE (Nested inside Layout) 🔥 */}
             {/* මේකෙන් කියන්නේ: Login වෙලා ඉන්න ඕනේ -> Layout එක තියෙන්න ඕනේ -> Super Admin කෙනෙක් වෙන්නත් ඕනේ */}
