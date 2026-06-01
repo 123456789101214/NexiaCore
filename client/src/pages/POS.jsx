@@ -662,6 +662,16 @@ const POS = () => {
                     )}
                 </div>
 
+                <div className="px-4 py-3 bg-white dark:bg-[#0f172a] border-b border-slate-100 dark:border-slate-800/60 shrink-0">
+                    <button
+                        onClick={() => setIsScannerOpen(true)}
+                        className="w-full bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 p-3 rounded-[1rem] flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+                    >
+                        <Camera size={18} />
+                        Scan Next Item
+                    </button>
+                </div>
+
                 {/* Cart Items List */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white dark:bg-slate-900/30 transition-colors">
                     {cart.map((item) => {
@@ -747,6 +757,25 @@ const POS = () => {
                     />
                 )}
             </div>
+            
+            {!isCartOpen && cart.length > 0 && (
+                <div className="md:hidden fixed bottom-6 left-4 right-4 z-40 animate-in slide-in-from-bottom-5">
+                    <button
+                        onClick={() => setIsCartOpen(true)}
+                        className="w-full bg-slate-900 dark:bg-blue-600 text-white p-4 rounded-[2rem] font-black text-sm shadow-2xl shadow-slate-900/30 dark:shadow-blue-900/30 flex items-center justify-between hover:bg-black dark:hover:bg-blue-700 active:scale-95 transition-all"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2 rounded-full relative">
+                                <ShoppingCart size={18} />
+                                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full shadow-sm">{cart.length}</span>
+                            </div>
+                            <span>VIEW CART</span>
+                        </div>
+                        <span>Rs. {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </button>
+                </div>
+            )}
+
             <BarcodeScannerModal
                 isOpen={isScannerOpen}
                 onClose={() => setIsScannerOpen(false)}
