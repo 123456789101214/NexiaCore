@@ -7,9 +7,9 @@ const excelUpload = multer({
         const allowedMimeTypes = [
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
             'application/vnd.ms-excel', // .xls
-            'text/csv', // .csv
-            'application/octet-stream' // fallback
+            'text/csv' // .csv
         ];
+        // 🛡️ SECURITY FIX: Removed 'application/octet-stream' fallback
         if (allowedMimeTypes.includes(file.mimetype) || file.originalname.match(/\.(xlsx|xls|csv)$/i)) {
             cb(null, true);
         } else {

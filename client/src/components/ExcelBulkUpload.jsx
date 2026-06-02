@@ -56,11 +56,11 @@ const ExcelBulkUpload = ({ isOpen, onClose, onSuccess }) => {
         e.preventDefault();
         setDragOver(false);
         const dropped = e.dataTransfer.files?.[0];
-        if (dropped && (dropped.name.endsWith('.xlsx') || dropped.name.endsWith('.csv'))) {
+        if (dropped && (dropped.name.endsWith('.xlsx') || dropped.name.endsWith('.csv') || dropped.name.endsWith('.xls'))) {
             setFile(dropped);
             setError(null);
         } else {
-            setError("Please upload a valid .xlsx or .csv file");
+            setError("Please upload a valid .xlsx, .xls or .csv file");
         }
     };
 

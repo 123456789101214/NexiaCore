@@ -21,6 +21,7 @@ import subscriptionRoutes from './routes/subscriptionRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
+import profileRoutes from './routes/profileRoutes.js';
 
 dotenv.config();
 
@@ -78,7 +79,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/staff', staffRoutes);
-
+app.use('/api/profile', profileRoutes); 
 // ❗ 404 handler (after routes)
 app.use((req, res) => {
     res.status(404).json({

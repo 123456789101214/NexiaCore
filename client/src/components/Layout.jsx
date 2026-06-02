@@ -6,11 +6,11 @@ import usePlanStore from '../store/planStore';
 import ThemeToggle from './ThemeToggle';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import useOfflineStore from '../store/offlineStore';
-import PWAInstallPrompt from './PWAInstallPrompt'; // We will create this next
+import PWAInstallPrompt from './PWAInstallPrompt'; 
 import {
   LayoutDashboard, Package, ShoppingCart, Users, LogOut, Store, Menu, X,
-  BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2, Zap
-} from 'lucide-react';
+  BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2, ChevronRight
+} from 'lucide-react'; // 💡 ChevronRight import එක ඇඩ් කළා
 
 const Layout = () => {
   const isOnline = useNetworkStatus();
@@ -24,8 +24,6 @@ const Layout = () => {
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  // 🔥 STRICT REACTIVITY: Fetch function එක වගේම, features object එකත් කෙලින්ම Store එකෙන් ගන්නවා. 
-  // එතකොට Data ආපු ගමන් මේ Component එක Re-render වෙනවා.
   const fetchPlanFeatures = usePlanStore((state) => state.fetchPlanFeatures);
   const features = usePlanStore((state) => state.features);
 
@@ -38,9 +36,8 @@ const Layout = () => {
   const hasSuperAdminAccess = isSuperAdmin(user);
 
   const menuItems = useMemo(() => {
-    // 💡 Helper function to check strict locking
     const checkFeatureLocked = (featureName) => {
-      if (!features) return true; // Loading වෙද්දී lock කරලා තියනවා
+      if (!features) return true; 
       return features[featureName] !== true;
     };
 
@@ -55,12 +52,11 @@ const Layout = () => {
       { name: 'Staff Management', path: '/staff', icon: <Users size={20} />, roles: ['owner', 'admin'] },
       { name: 'Reports', path: '/sales-history', icon: <BarChart2 size={20} />, roles: ['owner', 'admin', 'manager'], locked: checkFeatureLocked('analytics') },
       { name: 'Settings', path: '/settings', icon: <Settings size={20} />, roles: ['owner', 'admin'] },
-      // { name: 'Quick Setup Wizard',path: '/inventory/quick-setup',icon: <Zap size={20} />,roles: ['owner', 'admin'] }
     ];
 
     const currentRole = user?.role?.toLowerCase() || '';
     return allItems.filter(item => item.roles.includes(currentRole));
-  }, [user?.role, features]); // 🔥 features කියන එක Dependency Array එකට දැම්මා අනිවාර්යයෙන්ම Update වෙන්න
+  }, [user?.role, features]); 
 
   const handleLogout = () => {
     logoutAction();
@@ -68,10 +64,7 @@ const Layout = () => {
   };
 
   return (
-    // 🌌 1. Main Background wrapping everything (Added dark mode and transitions)
     <div className="min-h-screen w-full bg-slate-200 dark:bg-slate-950 flex justify-center font-sans transition-colors duration-500">
-
-      {/* 🌌 2. Inner App Container */}
       <div className="w-full max-w-[1600px] h-screen bg-slate-50 dark:bg-slate-900 flex overflow-hidden shadow-2xl md:border-x border-slate-300 dark:border-slate-800 transition-colors duration-500 relative">
 
         {isSidebarOpen && (
@@ -136,15 +129,26 @@ const Layout = () => {
             )}
           </nav>
 
-          {/* 🌌 4. User Profile */}
+          {/* 🌌 4. User Profile (🔥 PRO FIX: Clickable, Animated & Navigates to /profile) */}
           <div className="p-4 border-t border-slate-100 dark:border-slate-800/50">
-            <div className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 transition-colors">
-              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 font-black text-sm shrink-0 shadow-sm border border-blue-200 dark:border-blue-800/50">
+            <div 
+                onClick={() => {
+                    setIsSidebarOpen(false); // Mobile menu එක වහන්න
+                    navigate('/profile'); // Profile එකට යන්න
+                }}
+                className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/50 transition-colors cursor-pointer group"
+                title="Account Settings"
+            >
+              <div className="w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-600 flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm border border-blue-700 dark:border-blue-500">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{user?.name || 'User'}</span>
-                <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest">{user?.role || 'Guest'}</span>
+              <div className="flex flex-col overflow-hidden flex-1">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate transition-colors">{user?.name || 'User'}</span>
+                <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest transition-colors">{user?.role || 'Guest'}</span>
+              </div>
+              {/* Hover Arrow Effect */}
+              <div className="text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 transition-all duration-300 -ml-2 group-hover:ml-0">
+                  <ChevronRight size={16} />
               </div>
             </div>
             <button onClick={handleLogout} className="flex items-center justify-center gap-2 w-full px-4 py-3 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 font-bold rounded-xl transition-all">
@@ -157,8 +161,6 @@ const Layout = () => {
 
         {/* 🌌 5. Main Content Area */}
         <main className="flex-1 overflow-y-auto flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-500">
-
-          {/* 🌌 6. Header */}
           <header className="h-16 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 shrink-0 shadow-sm transition-colors duration-500">
             <div className="flex items-center gap-4">
               <button
@@ -170,13 +172,14 @@ const Layout = () => {
               <h1 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight transition-colors">
                 {location.pathname.startsWith('/super-admin')
                   ? 'Super Admin Portal'
+                  : location.pathname.startsWith('/profile') 
+                  ? 'Account Settings'
                   : (menuItems.find(item => location.pathname.startsWith(item.path))?.name || 'Nexus POS')}
               </h1>
             </div>
 
             <div className="flex items-center gap-3">
               <ThemeToggle />
-              {/* 🌌 7. Role Badge (Premium Dark Mode Colors) */}
               <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm transition-colors ${hasSuperAdminAccess ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20' :
                   user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20' :
                     user?.role === 'manager' ? 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' :

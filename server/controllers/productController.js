@@ -6,6 +6,8 @@ import * as XLSX from 'xlsx';
 import AdmZip from 'adm-zip';
 import { Readable } from 'stream';
 import Category from '../models/Category.js';
+import { fileTypeFromBuffer } from 'file-type';
+import crypto from 'crypto';
 
 // FIX 3: Configure cloudinary — must be called before any cloudinary operations
 // Uses same env vars as receiptUpload.js and existing cloudinary config
@@ -604,8 +606,12 @@ export const getExpiryAlerts = async (req, res) => {
     }
 };
 
-// ─── APPLY DISCOUNT ───────────────────────────────────────────────────────────
+// ─── APPLY DISCOUNT (YELLOW STICKER / AUTO-SPLIT SYSTEM) ─────────────────────
 export const applyDiscount = async (req, res) => {
+    // 🚀 PRO FIX: Start MongoDB Transaction for Data Integrity
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         const { id } = req.params;
         const { percentage } = req.body;
@@ -615,35 +621,110 @@ export const applyDiscount = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid discount percentage.' });
         }
 
-        const product = await Product.findOne({ _id: id, shopId });
+        const product = await Product.findOne({ _id: id, shopId }).session(session);
         if (!product) {
             return res.status(404).json({ success: false, error: 'Product not found.' });
         }
 
+        // Handle Discount Removal / Reset
         if (percentage === 0) {
             product.discount = { isActive: false, percentage: 0, discountedPrice: 0 };
-            product.expiryDiscountApplied = false; // 💡 Reset state if discount is removed
-        } else {
-            const discountedPrice = Math.round(product.price - (product.price * (percentage / 100)));
-
-            if (discountedPrice < product.buyingPrice) {
-                return res.status(400).json({
-                    success: false,
-                    error: `Blocked: Discounted price (Rs.${discountedPrice}) is below buying cost (Rs.${product.buyingPrice}). Reduce the discount.`
-                });
-            }
-
-            product.discount = { isActive: true, percentage, discountedPrice };
-            product.expiryDiscountApplied = true; // 💡 Mark action as taken!
+            product.expiryDiscountApplied = false;
+            await product.save({ session });
+            await session.commitTransaction();
+            session.endSession();
+            return res.status(200).json({ success: true, data: product });
         }
 
+        const discountedPrice = Math.round(product.price - (product.price * (percentage / 100)));
+
+        if (discountedPrice < product.buyingPrice) {
+            return res.status(400).json({
+                success: false,
+                error: `Blocked: Discounted price (Rs.${discountedPrice}) is below buying cost (Rs.${product.buyingPrice}). Reduce the discount.`
+            });
+        }
+
+        // 🚀 PRO FIX: Prevent infinite clearance loops
+        // If the product is ALREADY a clearance item, just update its discount
+        if (product.name.startsWith('[CLEARANCE]')) {
+            product.discount = { isActive: true, percentage, discountedPrice };
+            product.expiryDiscountApplied = true;
+            product.updatedBy = req.user._id;
+            await product.save({ session });
+            
+            await session.commitTransaction();
+            session.endSession();
+            return res.status(200).json({ success: true, data: product });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 🛠️ THE YELLOW STICKER SYSTEM: SPLIT THE PRODUCT
+        // ─────────────────────────────────────────────────────────────
+
+        // 1. Create the New Clearance Product Clone
+        const clearanceProduct = new Product({
+            shopId: product.shopId,
+            name: `[CLEARANCE] ${product.name}`,
+            sku: product.sku ? `CLR-${product.sku}` : `CLR-${product._id.toString().substring(0,8)}`,
+            barcode: product.barcode ? `CLR-${product.barcode}` : `CLR-${product._id.toString().substring(0,8)}`,
+            category: product.category,
+            buyingPrice: product.buyingPrice,
+            price: product.price,
+            discount: {
+                isActive: true,
+                percentage,
+                discountedPrice
+            },
+            expiryDiscountApplied: true,
+            stock: product.stock, // Move ALL current expiring stock to this new item
+            unit: product.unit,
+            minStockLevel: 0, // No low stock alerts for clearance items!
+            expiryDate: product.expiryDate, // Keep the expiry date here
+            expiryThreshold: product.expiryThreshold,
+            status: 'active',
+            image: product.image,
+            createdBy: req.user._id,
+            updatedBy: req.user._id
+        });
+
+        await clearanceProduct.save({ session });
+
+        // 2. Clean up the Original Product for the next GRN
+        product.stock = 0; // Stock has been moved to clearance
+        product.expiryDate = null; // Remove expiry so it disappears from alerts
+        product.expiryDiscountApplied = false; // Reset state
+        product.discount = { isActive: false, percentage: 0, discountedPrice: 0 };
         product.updatedBy = req.user._id;
-        await product.save();
-        res.status(200).json({ success: true, data: product });
+        
+        await product.save({ session });
+
+        // Commit both changes together
+        await session.commitTransaction();
+        session.endSession();
+
+        res.status(200).json({ 
+            success: true, 
+            message: 'Clearance batch created successfully!',
+            data: clearanceProduct 
+        });
 
     } catch (error) {
+        // Rollback all changes if anything fails
+        await session.abortTransaction();
+        session.endSession();
+        
         console.error("Apply Discount Error:", error);
-        res.status(500).json({ success: false, error: 'Server error while applying discount.' });
+
+        // Handle unique constraint error (e.g., CLR- barcode already exists)
+        if (error.code === 11000) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'A clearance batch for this product already exists. Please sell or clear it first.' 
+            });
+        }
+
+        res.status(500).json({ success: false, error: 'Server error while generating clearance batch.' });
     }
 };
 
@@ -839,15 +920,16 @@ const convertToDirectUrl = (url) => {
         return `https://drive.google.com/uc?export=download&id=${driveOpen[1]}`;
     }
 
-    // Dropbox: dl=0 → dl=1
     if (trimmed.includes('dropbox.com')) {
-        return trimmed.replace('dl=0', 'dl=1').replace('www.dropbox.com', 'dl.dropboxusercontent.com');
-    }
-
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        return trimmed;
-    }
-    return null;
+        try {
+            const dbUrl = new URL(trimmed);
+            dbUrl.hostname = 'dl.dropboxusercontent.com';
+            dbUrl.searchParams.set('dl', '1');
+            return dbUrl.toString();
+        } catch (error) {
+            return null; // URL එක අවුල් නම් Invalid කියලා අයින් කරනවා
+        }
+    }   
 };
 
 const downloadAndUploadToCloudinary = (url, productName, shopId) => {
@@ -856,11 +938,23 @@ const downloadAndUploadToCloudinary = (url, productName, shopId) => {
             const directUrl = convertToDirectUrl(url);
             if (!directUrl) { resolve(null); return; }
 
+            // 🛡️ SECURITY FIX 1: SSRF Protection (Whitelisting Domains)
+            try {
+                const ALLOWED_HOSTS = ['drive.google.com', 'dropbox.com', 'dl.dropboxusercontent.com', 'res.cloudinary.com'];
+                const parsed = new URL(directUrl);
+                if (!ALLOWED_HOSTS.some(h => parsed.hostname.endsWith(h))) {
+                    console.warn(`[Security Alert] Blocked unauthorized URL fetch attempt for host: ${parsed.hostname}`);
+                    return resolve(null); // අනවසර ලින්ක් එකක් නම් ප්‍රතික්ෂේප කරනවා
+                }
+            } catch (err) {
+                return resolve(null); // URL එකේ අවුලක් නම් අයින් කරනවා
+            }
+
             cloudinary.uploader.upload(directUrl, {
                 folder: `nexiacore_products/${shopId}`,
                 public_id: `${Date.now()}_${productName.replace(/\s+/g, '_').slice(0, 30)}`,
                 resource_type: 'image',
-                timeout: 20000, // 20 second timeout per image
+                timeout: 20000, 
                 transformation: [
                     { width: 500, height: 500, crop: 'limit' },
                     { quality: 'auto', fetch_format: 'auto' }
@@ -868,7 +962,7 @@ const downloadAndUploadToCloudinary = (url, productName, shopId) => {
             }, (error, result) => {
                 if (error) {
                     console.warn(`[Cloudinary] Upload failed for "${productName}":`, error.message);
-                    resolve(null); // Fail gracefully, keep uploading others
+                    resolve(null); 
                 } else {
                     resolve(result.secure_url);
                 }
@@ -886,9 +980,23 @@ const downloadAndUploadToCloudinary = (url, productName, shopId) => {
 
 export const bulkUploadFromExcel = async (req, res) => {
     try {
+        // 🛡️ SECURITY FIX 2: Strict Auth Check for shopId
+        if (!req.user || !req.user.shopId) {
+            return res.status(401).json({ success: false, error: "Unauthorized access: Shop identity verification failed." });
+        }
+
         // STEP 1: Validate file
         if (!req.file || !req.file.buffer) {
             return res.status(400).json({ success: false, error: "Please upload an Excel file (.xlsx or .csv)" });
+        }
+
+        // 🛡️ SECURITY FIX 3: Magic Bytes validation to block disguised malware
+        const type = await fileTypeFromBuffer(req.file.buffer);
+        // Note: CSV files are plain text, so `type` will be undefined for them.
+        // Excel files (.xlsx) are actually zipped XMLs, so they return as 'zip' or 'xlsx'.
+        if (type && !['xlsx', 'xls', 'zip'].includes(type.ext)) {
+            console.warn(`[Security Alert] Malicious file detected. Fake extension used by user: ${req.user._id}`);
+            return res.status(400).json({ success: false, error: "Invalid binary file detected. Security restriction applied." });
         }
 
         // STEP 2: Parse Excel
@@ -945,20 +1053,36 @@ export const bulkUploadFromExcel = async (req, res) => {
 
             const buyingPrice = parseFloat(row.buyingprice || row['buyingprice'] || 0);
 
-            // 👑 Architect's Touch: Smarter Barcode Generation
+            // 🚀 PRO FIX: Smart Excel Serial Date Converter
+            let parsedDate = null;
+            if (row.expirydate) {
+                const dateVal = row.expirydate;
+                
+                // 1. Check if it's an Excel Serial Number (e.g., 46752 for 2027-12-31)
+                // Serial numbers for dates in the 2000s are typically greater than 30000
+                if (!isNaN(dateVal) && Number(dateVal) > 20000) {
+                    const excelDays = Number(dateVal);
+                    // Formula: (Excel Days - 25569 Days to 1970) * Seconds in Day * 1000 Milliseconds
+                    parsedDate = new Date(Math.round((excelDays - 25569) * 86400 * 1000));
+                } else {
+                    // 2. Fallback for standard string dates (e.g., "2027-12-31" from CSV or Text fields)
+                    parsedDate = new Date(dateVal);
+                }
+            }
+            const validExpiryDate = (parsedDate && !isNaN(parsedDate.getTime())) ? parsedDate : null;
+
+            // 🛠️ BUG FIX: Barcode Collision Prevention (crypto.randomUUID භාවිතා කිරීම)
             let finalBarcode = row.barcode ? String(row.barcode).trim() : null;
 
             if (!finalBarcode) {
                 const cleanName = String(row.name).trim().toLowerCase();
 
-                // 1. මේ නමින්ම බඩුවක් කලින් ඇඩ් වෙලා තියෙනවද කියලා බලනවා
                 if (nameToBarcodeMap.has(cleanName)) {
-                    // තියෙනවා නම්, ඒ පරණ Barcode එකම පාවිච්චි කරනවා (එතකොට අලුතින් ඇඩ් වෙන්නේ නෑ, Update වෙනවා)
                     finalBarcode = nameToBarcodeMap.get(cleanName);
                 } else {
-                    // 2. ඇත්තටම අලුත් බඩුවක් නම් විතරක් අලුත් Barcode එකක් ජෙනරේට් කරනවා
-                    const randomPart = Math.floor(Math.random() * 900000) + 100000;
-                    finalBarcode = `840${randomPart}${String(i).padStart(4, '0')}`;
+                    // Math.random වෙනුවට 100% Unique වෙන UUID එකක් පාවිච්චි කරනවා
+                    const uniqueId = crypto.randomUUID().split('-')[0].toUpperCase();
+                    finalBarcode = `840-${uniqueId}-${String(i).padStart(4, '0')}`;
                 }
             }
 
@@ -973,7 +1097,7 @@ export const bulkUploadFromExcel = async (req, res) => {
                 stock: parseInt(row.stock) || 0,
                 unit: ['pcs', 'kg', 'g', 'ltr', 'ml', 'packet', 'bottle', 'bundle'].includes(row.unit) ? row.unit : 'pcs',
                 minStockLevel: parseInt(row.minstocklevel || row.minstock || 10) || 10,
-                expiryDate: row.expirydate ? new Date(row.expirydate) : null,
+                expiryDate: validExpiryDate, // 👈 අලුත් Date Variable එක
                 imageUrl: row.imageurl || row.image || null
             });
         }
@@ -982,17 +1106,30 @@ export const bulkUploadFromExcel = async (req, res) => {
             return res.status(400).json({ success: false, error: 'No valid products found to process.', errorRows });
         }
 
-        // STEP 5: Process images in parallel (Concurrency: 3)
+        // STEP 5: Process images in parallel with Request Timeout Guard
         const CONCURRENCY = 3;
         const rowsWithImages = [...validRows];
+        const MAX_PROCESSING_TIME = 50 * 1000; // 🛠️ FIX: 50 Seconds max limit for image processing
+        const startTime = Date.now();
+        let timeLimitReached = false;
 
         for (let i = 0; i < rowsWithImages.length; i += CONCURRENCY) {
+            // 🛠️ FIX: Server-side timeout guard to prevent request hanging
+            if (Date.now() - startTime > MAX_PROCESSING_TIME) {
+                console.warn("[Bulk Upload] Time limit reached. Skipping remaining images to prevent timeout.");
+                timeLimitReached = true;
+                break; 
+            }
+
             const batch = rowsWithImages.slice(i, i + CONCURRENCY);
             await Promise.all(
-                batch.map(async (row, batchIndex) => {
+                batch.map(async (row) => {
                     if (row.imageUrl) {
-                        const cloudUrl = await downloadAndUploadToCloudinary(row.imageUrl, row.name, req.user.shopId.toString());
-                        rowsWithImages[i + batchIndex].processedImageUrl = cloudUrl;
+                        row.processedImageUrl = await downloadAndUploadToCloudinary(
+                            row.imageUrl, 
+                            row.name, 
+                            req.user.shopId.toString()
+                        );
                     }
                 })
             );
@@ -1000,30 +1137,41 @@ export const bulkUploadFromExcel = async (req, res) => {
 
         // STEP 6: Build MongoDB bulkWrite
         const DEFAULT_IMAGE = 'https://placehold.co/150?text=No+Image';
-        const operations = rowsWithImages.map(row => ({
-            updateOne: {
-                filter: { shopId: req.user.shopId, barcode: row.barcode },
-                update: {
-                    $set: {
-                        shopId: req.user.shopId,
-                        name: row.name,
-                        barcode: row.barcode,
-                        sku: row.sku,
-                        category: row.category,
-                        buyingPrice: row.buyingPrice,
-                        price: row.price,
-                        stock: row.stock,
-                        unit: row.unit,
-                        minStockLevel: row.minStockLevel,
-                        expiryDate: row.expiryDate,
-                        image: row.processedImageUrl || DEFAULT_IMAGE,
-                        status: 'active',
-                        updatedBy: req.user._id
-                    }
+        const operations = rowsWithImages.map(row => {
+            const updateDoc = {
+                $set: {
+                    shopId: req.user.shopId,
+                    name: row.name,
+                    barcode: row.barcode,
+                    sku: row.sku,
+                    category: row.category,
+                    buyingPrice: row.buyingPrice,
+                    price: row.price,
+                    stock: Math.max(0, parseInt(row.stock) || 0), // 🛠️ FIX: Negative stock guard
+                    unit: row.unit,
+                    minStockLevel: row.minStockLevel,
+                    expiryDate: row.expiryDate,
+                    status: 'active',
+                    updatedBy: req.user._id
                 },
-                upsert: true
+                $setOnInsert: {}
+            };
+
+            // 🛠️ FIX: Don't overwrite existing images unconditionally (Logic Gap)
+            if (row.processedImageUrl) {
+                updateDoc.$set.image = row.processedImageUrl; // අලුත් ඉමේජ් එකක් දුන්නොත් විතරක් Update කරනවා
+            } else {
+                updateDoc.$setOnInsert.image = DEFAULT_IMAGE; // අලුත්ම බඩුවක් නම් විතරක් Default Image එක දානවා
             }
-        }));
+
+            return {
+                updateOne: {
+                    filter: { shopId: req.user.shopId, barcode: row.barcode },
+                    update: updateDoc,
+                    upsert: true
+                }
+            };
+        });
 
         // STEP 7: Execute
         const result = await Product.bulkWrite(operations, { ordered: false });

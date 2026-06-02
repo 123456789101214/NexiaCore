@@ -2,26 +2,31 @@ import mongoose from 'mongoose';
 import Product from '../models/Product.js';
 import Order from '../models/Order.js';
 
-// 1. Get Smart Alerts (Expiry & Low Stock) - OPTIMIZED FOR DB & ZERO-LOSS AI
+// 1. Get Smart Alerts (Expiry & Low Stock) - 🚀 PRO FIX: LEAN QUERIES & DB STATE SYNC
 export const getSmartAlerts = async (req, res) => {
     try {
+        // 🛡️ SECURITY: Explicit check just in case
+        if (['cashier'].includes(req.user.role)) {
+            return res.status(403).json({ success: false, error: 'Unauthorized to view financial insights' });
+        }
+
         const today = new Date();
         const twoWeeksFromNow = new Date();
         twoWeeksFromNow.setDate(today.getDate() + 14);
 
+        // 🚀 THE FIX: Added 'expiryDiscountApplied' and 'discount' to the .select() query
         const expiringProducts = await Product.find({
             shopId: req.user.shopId,
             status: 'active',
             expiryDate: { $lte: twoWeeksFromNow, $ne: null }
-        });
+        }).select('_id name stock expiryDate price buyingPrice expiryThreshold expiryDiscountApplied discount').lean();
 
         const alerts = expiringProducts.map(p => {
             const daysToExpiry = Math.ceil((new Date(p.expiryDate) - today) / (1000 * 60 * 60 * 24));
             
             let suggestedAction = "Monitor closely";
-            let idealDiscountPercentage = 0; // The discount we *want* to give
+            let idealDiscountPercentage = 0;
 
-            // 1. Determine ideal discount based on urgency
             if (daysToExpiry <= 3) {
                 idealDiscountPercentage = 50;
             } else if (daysToExpiry <= 7) {
@@ -33,27 +38,17 @@ export const getSmartAlerts = async (req, res) => {
             let finalDiscountPercentage = idealDiscountPercentage;
             let recommendedPrice = p.price;
 
-            // 💡 PRO FIX: ZERO-LOSS ALGORITHM (Break-even coverage)
+            // 💡 ZERO-LOSS ALGORITHM
             if (idealDiscountPercentage > 0 && p.price > 0) {
-                // Calculate what the price would be with the ideal discount
                 const tentativePrice = Math.round(p.price - (p.price * (idealDiscountPercentage / 100)));
 
                 if (tentativePrice < p.buyingPrice) {
-                    // LOSS DETECTED!
-                    // We must calculate a new percentage that exactly matches the buyingPrice (Break-even)
-                    // Equation: buyingPrice = price - (price * (P / 100))
-                    // P = ((price - buyingPrice) / price) * 100
-                    
                     if (p.price <= p.buyingPrice) {
-                        // Profit margin is zero or negative already. Cannot give any discount.
                         finalDiscountPercentage = 0;
                         recommendedPrice = p.price;
                         suggestedAction = "Clearance needed, but NO DISCOUNT possible (At Cost/Loss)";
                     } else {
-                        // Calculate the maximum safe discount percentage
                         const maxSafeDiscount = Math.floor(((p.price - p.buyingPrice) / p.price) * 100);
-                        
-                        // We set a minimum 1% discount buffer just to be safe
                         finalDiscountPercentage = Math.max(0, maxSafeDiscount - 1); 
                         
                         if (finalDiscountPercentage > 0) {
@@ -66,7 +61,6 @@ export const getSmartAlerts = async (req, res) => {
                         }
                     }
                 } else {
-                    // Safe to proceed with the ideal discount
                     recommendedPrice = tentativePrice;
                     suggestedAction = `Apply a ${finalDiscountPercentage}% promotional discount to clear stock.`;
                     
@@ -80,21 +74,24 @@ export const getSmartAlerts = async (req, res) => {
                 stock: p.stock,
                 expiryDate: p.expiryDate,
                 price: p.price,
-                buyingPrice: p.buyingPrice, // Added for frontend context if needed
+                buyingPrice: p.buyingPrice,
                 daysToExpiry,
-                isExpiringSoon: daysToExpiry <= p.expiryThreshold,
+                isExpiringSoon: daysToExpiry <= (p.expiryThreshold || 30),
                 suggestedAction, 
-                discountSuggestion: finalDiscountPercentage, // Safe percentage
-                recommendedPrice: recommendedPrice // Safe price
+                discountSuggestion: finalDiscountPercentage,
+                recommendedPrice: recommendedPrice,
+                // 🚀 THE FIX: Sync with Database actual state instead of hardcoding false!
+                expiryDiscountApplied: p.expiryDiscountApplied || false,
+                discount: p.discount || null
             };
         });
 
         res.status(200).json({ success: true, data: alerts });
     } catch (error) {
+        console.error("Smart Alerts Error:", error);
         res.status(500).json({ success: false, error: 'Failed to fetch smart alerts' });
     }
 };
-
 // 2. Get Dashboard Summary (Sales & Product counts) - WITH RBAC
 export const getDashboardSummary = async (req, res) => {
     try {
@@ -146,7 +143,7 @@ export const getDashboardSummary = async (req, res) => {
     }
 };
 
-// 3. Get Stock Forecast - O(1) LOOKUP ALGORITHM 
+// 3. Get Stock Forecast - 🚀 PRO FIX: EXACT OBJECT ID CASTING & ISOLATION
 export const getStockForecast = async (req, res) => {
     try {
         const shopId = req.user.shopId;
@@ -155,6 +152,7 @@ export const getStockForecast = async (req, res) => {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+        // Multi-tenant aggregation
         const salesData = await Order.aggregate([
             { $match: { shopId: objectShopId, createdAt: { $gte: sevenDaysAgo }, status: 'completed' } },
             { $unwind: "$items" },
@@ -170,7 +168,7 @@ export const getStockForecast = async (req, res) => {
             _id: { $in: soldProductIds }, 
             shopId: shopId, 
             status: 'active' 
-        });
+        }).select('_id name stock').lean(); // 🚀 PRO FIX: Lean query
 
         const salesMap = {};
         salesData.forEach(s => {

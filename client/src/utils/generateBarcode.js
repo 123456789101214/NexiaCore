@@ -1,10 +1,69 @@
 import JsBarcode from 'jsbarcode';
+import Swal from 'sweetalert2'; // 🚀 UI UPGRADE: SweetAlert Import කළා
 
-export const printBarcodeLabel = (product, shopName = 'NEXIACORE POS') => {
-    // Barcode එකක් නැත්නම් SKU එක ගන්නවා, ඒකත් නැත්නම් Object ID එකේ කෑල්ලක් ගන්නවා
-    const barcodeValue = product.barcode || product.sku || product._id.substring(0, 10);
+// 🛡️ SECURITY FIX: XSS Protection Helper
+const sanitizeHTML = (str) => {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};
 
-    // 1. Memory එක ඇතුළේ තාවකාලික Canvas එකක් හදලා ඒකට Barcode එක අඳිනවා
+// 🚀 UI UPGRADE: ෆන්ක්ෂන් එක async කළා SweetAlert එකට සපෝර්ට් කරන්න
+export const printBarcodeLabel = async (product, shopName = 'NEXIACORE POS') => {
+    
+    const barcodeValue = product.barcode || product.sku;
+    
+    if (!barcodeValue) {
+        // අර කැත Alert එක වෙනුවට ලස්සන Error Modal එකක්
+        Swal.fire({
+            title: 'Cannot Print',
+            text: 'No Barcode or SKU found for this product. Please edit the product and add a Barcode/SKU first.',
+            icon: 'error',
+            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+        });
+        return;
+    }
+
+    // 🚀 UI UPGRADE: පරණ Prompt එක අයින් කරලා SweetAlert Number Input එකක් දැම්මා!
+    const { value: qtyInput, isConfirmed } = await Swal.fire({
+        title: 'Print Barcodes',
+        html: `How many labels do you want to print for <br/><b class="text-blue-500">${product.name}</b>?`,
+        icon: 'question',
+        input: 'number',
+        inputValue: 24, // Default අගය
+        inputAttributes: {
+            min: 1,
+            step: 1
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Generate Labels',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#64748b',
+        customClass: {
+            popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem] shadow-2xl',
+            input: 'text-center text-lg font-bold dark:bg-slate-900 dark:text-white border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 transition-colors',
+        },
+        inputValidator: (value) => {
+            if (!value || value <= 0) {
+                return 'Please enter a valid quantity!';
+            }
+        }
+    });
+
+    // User Cancel කළොත් මෙතනින් නවතිනවා
+    if (!isConfirmed) return;
+
+    const LABEL_COUNT = parseInt(qtyInput, 10);
+
+    // ---------------------------------------------------------
+    // මීට පස්සේ තියෙන Barcode හදන Logic එක කලින් වගේමයි
+    // ---------------------------------------------------------
+
     const canvas = document.createElement('canvas');
     try {
         JsBarcode(canvas, barcodeValue, {
@@ -20,46 +79,52 @@ export const printBarcodeLabel = (product, shopName = 'NEXIACORE POS') => {
         });
     } catch (error) {
         console.error('Barcode generation failed:', error);
-        alert('Could not generate barcode for this product. Format might be invalid.');
+        Swal.fire({
+            title: 'Generation Failed',
+            text: 'Could not generate barcode. The format might be invalid for CODE128.',
+            icon: 'error',
+            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+        });
         return;
     }
 
-    // 2. ඒ Canvas එක Base64 Image එකක් (Data URL) බවට පත් කරනවා
     const barcodeDataUrl = canvas.toDataURL('image/png');
 
-    // 3. Print කරන්න අලුත් Window එකක් ඕපන් කරනවා
     const printWindow = window.open('', '_blank', 'width=800,height=800');
     if (!printWindow) {
-        alert('Please allow pop-ups in your browser to print barcode labels.');
+        Swal.fire({
+            title: 'Pop-up Blocked',
+            text: 'Please allow pop-ups in your browser to print barcode labels.',
+            icon: 'warning',
+            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+        });
         return;
     }
 
-    // 4. A4 Sheet එකකට ගැලපෙන විදිහට ලේබල් 24ක් (4 columns x 6 rows) හදනවා
-    const LABEL_COUNT = 24; 
+    const safeShopName = sanitizeHTML(shopName);
+    const safeBarcodeValue = sanitizeHTML(barcodeValue);
+    const rawName = product.name ? String(product.name) : 'Unknown Product';
+    const safeName = sanitizeHTML(rawName);
+    const displayName = safeName.length > 25 ? safeName.substring(0, 25) + '...' : safeName;
+    const safePrice = parseFloat(product.price || 0).toLocaleString('en-LK', { minimumFractionDigits: 2 });
+
     let labelsHtml = '';
-
     for (let i = 0; i < LABEL_COUNT; i++) {
-        // දිග නම් තියෙනවා නම් ඒක කපලා පෙන්වනවා (Label එකෙන් පිට පනින්නේ නැති වෙන්න)
-        const displayName = product.name.length > 25 
-            ? product.name.substring(0, 25) + '...' 
-            : product.name;
-
         labelsHtml += `
             <div class="label">
-                <div class="shop-name">${shopName}</div>
+                <div class="shop-name">${safeShopName}</div>
                 <div class="product-name">${displayName}</div>
-                <div class="price">Rs. ${parseFloat(product.price).toLocaleString()}</div>
-                <img class="barcode-img" src="${barcodeDataUrl}" alt="${barcodeValue}" />
+                <div class="price">Rs. ${safePrice}</div>
+                <img class="barcode-img" src="${barcodeDataUrl}" alt="${safeBarcodeValue}" />
             </div>
         `;
     }
 
-    // 5. සම්පූර්ණ HTML Template එක (Production-ready CSS එක්ක)
     const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Print Barcodes - ${product.name}</title>
+            <title>Print Barcodes - ${safeName}</title>
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
                 
@@ -72,7 +137,7 @@ export const printBarcodeLabel = (product, shopName = 'NEXIACORE POS') => {
                 
                 .page {
                     display: grid;
-                    grid-template-columns: repeat(4, 1fr);
+                    grid-template-columns: repeat(4, 48mm);
                     gap: 6mm 4mm;
                 }
                 
@@ -84,7 +149,7 @@ export const printBarcodeLabel = (product, shopName = 'NEXIACORE POS') => {
                     flex-direction: column;
                     justify-content: center;
                     align-items: center;
-                    height: 38mm; /* Standard label height */
+                    height: 38mm; 
                     box-sizing: border-box;
                     border-radius: 4px;
                 }
@@ -118,15 +183,14 @@ export const printBarcodeLabel = (product, shopName = 'NEXIACORE POS') => {
                 
                 .barcode-img { 
                     max-width: 100%; 
-                    height: 35px; /* Fixed height so it doesn't break layout */
+                    height: 35px;
                     object-fit: contain;
                 }
                 
-                /* Print Specific Styles */
                 @media print {
                     body { padding: 0; }
                     .label { 
-                        border: none; /* Print කරද්දී කොටු පේන්නේ නෑ */
+                        border: none;
                         page-break-inside: avoid;
                     }
                     @page { 
@@ -141,12 +205,10 @@ export const printBarcodeLabel = (product, shopName = 'NEXIACORE POS') => {
                 ${labelsHtml}
             </div>
             <script>
-                // ලෝඩ් වුණ ගමන් Print Dialog එක ඕපන් කරනවා, Print කළාට පස්සේ Window එක වහනවා
-                window.onload = () => {
-                    setTimeout(() => {
-                        window.print();
-                        window.onafterprint = () => window.close();
-                    }, 300); // 300ms delay for images to fully render
+                window.onload = async () => {
+                    await document.fonts.ready;
+                    window.print();
+                    window.onafterprint = () => window.close();
                 };
             </script>
         </body>
