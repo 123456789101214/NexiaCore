@@ -112,7 +112,7 @@ const Dashboard = () => {
           </div>
           
           <div className="space-y-4 mt-auto">
-              <button className="w-full py-4 bg-blue-600 dark:bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-500 shadow-lg shadow-blue-100 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2">
+              {/* <button className="w-full py-4 bg-blue-600 dark:bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-500 shadow-lg shadow-blue-100 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2">
                 New Sale (POS)
               </button>
               
@@ -123,7 +123,7 @@ const Dashboard = () => {
                 >
                     <Plus size={20} /> Add New Product
                 </button>
-              )}
+              )} */}
           </div>
         </div>
       </div>
