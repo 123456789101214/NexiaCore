@@ -203,20 +203,29 @@ export const getStockForecast = async (req, res) => {
     }
 };
 
-// @desc    Get sales chart data with date filling
+// @desc    Get sales chart data with timezone-strict zero-gap filling
 // @route   GET /api/analytics/chart-data
 // @access  Private (Owner, Admin, Manager)
 export const getSalesChartData = async (req, res) => {
     try {
         const period = parseInt(req.query.period) || 7;
         
-        // Step 1: Build date range
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - period);
-        startDate.setHours(0, 0, 0, 0);
+        // 🚀 PRO FIX 1: Strict Asia/Colombo (UTC+5:30) Timezone Boundaries
+        const offsetMS = 5.5 * 60 * 60 * 1000;
+        const nowUTC = new Date();
+        const nowSLST = new Date(nowUTC.getTime() + offsetMS);
+        
+        // Set to exact midnight in SLST
+        nowSLST.setUTCHours(0, 0, 0, 0); 
 
-        // Step 2: Daily sales aggregation (Tenant Isolated)
+        // Calculate start date (SLST midnight of 'period' days ago)
+        const startSLST = new Date(nowSLST.getTime() - ((period - 1) * 24 * 60 * 60 * 1000));
+        
+        // Convert boundaries back to UTC for accurate MongoDB querying
+        const startDate = new Date(startSLST.getTime() - offsetMS);
+        const endDate = new Date(nowSLST.getTime() + (24 * 60 * 60 * 1000) - 1 - offsetMS);
+
+        // 🚀 PRO FIX 2: Tenant Isolated + Timezone-Aware Aggregation
         const aggregationResult = await Order.aggregate([
             {
                 $match: {
@@ -228,9 +237,10 @@ export const getSalesChartData = async (req, res) => {
             {
                 $group: {
                     _id: {
-                        year: { $year: '$createdAt' },
-                        month: { $month: '$createdAt' },
-                        day: { $dayOfMonth: '$createdAt' }
+                        // Crucial: Group by Sri Lanka Time, not UTC!
+                        year: { $year: { date: '$createdAt', timezone: 'Asia/Colombo' } },
+                        month: { $month: { date: '$createdAt', timezone: 'Asia/Colombo' } },
+                        day: { $dayOfMonth: { date: '$createdAt', timezone: 'Asia/Colombo' } }
                     },
                     totalSales: { $sum: '$totalAmount' },
                     totalProfit: { $sum: '$totalProfit' },
@@ -240,29 +250,33 @@ export const getSalesChartData = async (req, res) => {
             { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
         ]);
 
-        // Step 3: Fill missing days with zeros
+        // 🚀 PRO FIX 3: Zero-Gap Filling using SLST Calendar
         const filledData = [];
         for (let i = 0; i < period; i++) {
-            const date = new Date(startDate);
-            date.setDate(date.getDate() + i);
-            const dateStr = date.toISOString().split('T')[0];
+            const currentDateSLST = new Date(startSLST.getTime() + (i * 24 * 60 * 60 * 1000));
+            
+            const year = currentDateSLST.getUTCFullYear();
+            const month = currentDateSLST.getUTCMonth() + 1;
+            const day = currentDateSLST.getUTCDate();
 
-            const found = aggregationResult.find(item => {
-                return item._id.year === date.getFullYear() &&
-                       item._id.month === date.getMonth() + 1 &&
-                       item._id.day === date.getDate();
-            });
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            // Use UTC format here to prevent local browser timezone from shifting the label
+            const label = currentDateSLST.toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+
+            const found = aggregationResult.find(item => 
+                item._id.year === year && item._id.month === month && item._id.day === day
+            );
 
             filledData.push({
                 date: dateStr,
-                label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                label,
                 totalSales: found ? found.totalSales : 0,
                 totalProfit: found ? found.totalProfit : 0,
                 orderCount: found ? found.orderCount : 0
             });
         }
 
-        // Step 4: Calculate summary totals
+        // Step 4: Calculate summary totals cleanly
         const totalSales = filledData.reduce((sum, d) => sum + d.totalSales, 0);
         const summary = {
             totalSales,
@@ -271,21 +285,15 @@ export const getSalesChartData = async (req, res) => {
             avgDailySales: totalSales / period
         };
 
-        // Step 5: RBAC Security — Hide profit from managers/cashiers
+        // Step 5: Strict RBAC Security — Mutate objects to hide profit
         if (['manager', 'cashier'].includes(req.user.role)) {
             delete summary.totalProfit;
-            filledData.forEach(item => {
-                delete item.totalProfit;
-            });
+            filledData.forEach(item => delete item.totalProfit);
         }
 
         res.status(200).json({
             success: true,
-            data: {
-                chartData: filledData,
-                summary,
-                period
-            }
+            data: { chartData: filledData, summary, period }
         });
 
     } catch (error) {

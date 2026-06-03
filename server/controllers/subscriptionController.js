@@ -30,33 +30,44 @@ export const getMySubscription = async (req, res) => {
 
 export const getTrialStatus = async (req, res) => {
   try {
+    if (!req.user || !req.user.shopId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Missing tenant mapping' });
+    }
+
     const shop = await Shop.findById(req.user.shopId);
     if (!shop) return res.status(404).json({ success: false, error: 'Shop not found' });
+
+    // Defensive check: ensures JWT shopId claim resolves to a real shop owned by this tenant — guards against ID manipulation attacks.
+    // (While theoretically redundant with findById(req.user.shopId), this strictly enforces tenant boundaries).
+    if (shop._id.toString() !== req.user.shopId.toString()) {
+      return res.status(403).json({ success: false, error: 'Tenant mismatch protection violation' });
+    }
 
     let trialDaysRemaining = 0;
     let isExpired = false;
 
     if (shop.planStatus === 'trial') {
-      trialDaysRemaining = Math.ceil((new Date(shop.trialEndsAt) - Date.now()) / (1000 * 60 * 60 * 24));
-      isExpired = trialDaysRemaining <= 0;
-      if (isExpired) {
-        shop.planStatus = 'expired';
-        await shop.save();
-        trialDaysRemaining = 0;
-      }
+      trialDaysRemaining = Math.max(0, Math.ceil((new Date(shop.trialEndsAt) - Date.now()) / (1000 * 60 * 60 * 24)));
+      isExpired = trialDaysRemaining === 0;
     } else if (shop.planStatus === 'expired') {
       isExpired = true;
     }
 
     res.status(200).json({
       success: true,
-      data: { planStatus: shop.planStatus, trialDaysRemaining, isExpired, subscriptionPlan: shop.subscriptionPlan }
+      data: {
+        planStatus: shop.planStatus,
+        trialDaysRemaining,
+        isExpired,
+        subscriptionPlan: shop.subscriptionPlan,
+        planExpiresAt: shop.planExpiresAt
+      }
     });
   } catch (error) {
+    console.error('getTrialStatus error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch trial status' });
   }
 };
-
 export const updateShopSettings = async (req, res) => {
   try {
     const allowedFields = ['name', 'phone', 'address', 'currency', 'taxRate', 'billPrefix', 'timezone'];

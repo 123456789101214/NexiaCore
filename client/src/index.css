@@ -68,3 +68,19 @@
     margin: 0;
   }
 }
+
+/* 🌙 SweetAlert2 Dark Mode Fixes for Radio Buttons */
+.dark .swal2-radio {
+    background-color: transparent !important;
+    border: none !important;
+}
+
+.dark .swal2-radio label,
+.dark .swal2-label {
+    color: #f1f5f9 !important; /* Tailwind text-slate-100 */
+}
+
+/* (Optional) ඔයාගේ Radio Button එකේ රවුම (Input එක) ටිකක් ලස්සන කරන්න */
+.dark .swal2-radio input[type="radio"] {
+    accent-color: #3b82f6; /* text-blue-500 */
+}

@@ -22,6 +22,7 @@ import superAdminRoutes from './routes/superAdminRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import { startSubscriptionReminders } from './jobs/subscriptionReminder.js';
 
 dotenv.config();
 
@@ -102,6 +103,8 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
     try {
         await connectDB();
+
+        startSubscriptionReminders();
 
         app.listen(PORT, () => {
             console.log(
