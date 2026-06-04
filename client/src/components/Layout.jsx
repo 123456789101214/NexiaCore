@@ -9,7 +9,7 @@ import useOfflineStore from '../store/offlineStore';
 import PWAInstallPrompt from './PWAInstallPrompt'; 
 import {
   LayoutDashboard, Package, ShoppingCart, Users, LogOut, Store, Menu, X,
-  BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2, ChevronRight
+  BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2, ChevronRight, WifiOff, ShieldAlert, Shield, Briefcase, Key, Calculator, User
 } from 'lucide-react'; // 💡 ChevronRight import එක ඇඩ් කළා
 
 const Layout = () => {
@@ -169,39 +169,54 @@ const Layout = () => {
               >
                 <Menu size={24} />
               </button>
-              <h1 className="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight transition-colors">
-                {location.pathname.startsWith('/super-admin')
-                  ? 'Super Admin Portal'
-                  : location.pathname.startsWith('/profile') 
-                  ? 'Account Settings'
-                  : (menuItems.find(item => location.pathname.startsWith(item.path))?.name || 'Nexus POS')}
-              </h1>
+              {/* 🚀 FIX: Added 'flex-1' to take safe space and 'mr-4' to force a gap before the Toggler */}
+<h1 className="flex-1 text-base md:text-[1.1rem] font-black text-slate-800 dark:text-white uppercase tracking-tight transition-colors truncate min-w-0 mr-4 md:mr-6">
+    {location.pathname.startsWith('/super-admin')
+        ? 'Super Admin Portal'
+        : location.pathname.startsWith('/profile') 
+        ? 'Account Settings'
+        : (menuItems.find(item => location.pathname.startsWith(item.path))?.name || 'Nexus POS')}
+</h1>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <ThemeToggle />
-              <span className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm transition-colors ${hasSuperAdminAccess ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20' :
-                  user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20' :
-                    user?.role === 'manager' ? 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' :
-                      user?.role === 'owner' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' :
-                        'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-                }`}>
-                {hasSuperAdminAccess ? 'SUPER ADMIN' : user?.role || 'Guest'} MODE
-              </span>
+              <span className={`shrink-0 flex items-center justify-center whitespace-nowrap p-1.5 md:px-3 md:py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm transition-colors cursor-default ${
+        hasSuperAdminAccess ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20' :
+        user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20' :
+        user?.role === 'manager' ? 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' :
+        user?.role === 'owner' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' :
+        'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
+    }`} title={hasSuperAdminAccess ? 'Super Admin Mode' : `${user?.role || 'Guest'} Mode`}>
+        
+        {/* Dynamic Icons based on Role */}
+        {hasSuperAdminAccess ? <ShieldAlert size={16} className="md:mr-2" /> :
+         user?.role === 'admin' ? <Shield size={16} className="md:mr-2" /> :
+         user?.role === 'manager' ? <Briefcase size={16} className="md:mr-2" /> :
+         user?.role === 'owner' ? <Key size={16} className="md:mr-2" /> :
+         user?.role === 'cashier' ? <Calculator size={16} className="md:mr-2" /> :
+         <User size={16} className="md:mr-2" />}
+        
+        {/* Text hides on mobile (sm) and shows on medium screens and up (md) */}
+        <span className="hidden md:inline">
+            {hasSuperAdminAccess ? 'SUPER ADMIN' : user?.role || 'Guest'} MODE
+        </span>
+    </span>
             </div>
             {!isOnline && (
-              <div className="flex items-center gap-2 bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-black">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                OFFLINE MODE
-              </div>
-            )}
+        <div className="shrink-0 flex items-center justify-center bg-amber-100 text-amber-800 p-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-full text-xs font-black shadow-sm border border-amber-200/60" title="You are Offline">
+            <WifiOff size={16} className="md:mr-2 text-amber-600 animate-pulse" />
+            <span className="hidden md:inline">OFFLINE MODE</span>
+        </div>
+    )}
 
-            {pendingOrdersCount > 0 && isOnline && (
-              <div className="flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-black">
-                <Loader2 size={12} className="animate-spin" />
-                Syncing {pendingOrdersCount} orders...
-              </div>
-            )}
+    {/* 3. Syncing Badge (Loader Icon on Mobile) */}
+    {pendingOrdersCount > 0 && isOnline && (
+        <div className="shrink-0 flex items-center justify-center bg-blue-100 text-blue-800 p-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-full text-xs font-black shadow-sm border border-blue-200/60" title={`Syncing ${pendingOrdersCount} orders`}>
+            <Loader2 size={16} className="animate-spin md:mr-2 text-blue-600" />
+            <span className="hidden md:inline">Syncing {pendingOrdersCount}</span>
+        </div>
+    )}
           </header>
 
           <div className="p-4 md:p-8">
