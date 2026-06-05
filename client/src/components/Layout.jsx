@@ -6,7 +6,7 @@ import usePlanStore from '../store/planStore';
 import ThemeToggle from './ThemeToggle';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import useOfflineStore from '../store/offlineStore';
-import PWAInstallPrompt from './PWAInstallPrompt'; 
+import PWAInstallPrompt from './PWAInstallPrompt';
 import {
   LayoutDashboard, Package, ShoppingCart, Users, LogOut, Store, Menu, X,
   BarChart2, ShoppingBag, ClipboardList, Truck, BookUser, Settings, ShieldCheck, Lock, Loader2, ChevronRight, WifiOff, ShieldAlert, Shield, Briefcase, Key, Calculator, User
@@ -37,7 +37,7 @@ const Layout = () => {
 
   const menuItems = useMemo(() => {
     const checkFeatureLocked = (featureName) => {
-      if (!features) return true; 
+      if (!features) return true;
       return features[featureName] !== true;
     };
 
@@ -56,7 +56,7 @@ const Layout = () => {
 
     const currentRole = user?.role?.toLowerCase() || '';
     return allItems.filter(item => item.roles.includes(currentRole));
-  }, [user?.role, features]); 
+  }, [user?.role, features]);
 
   const handleLogout = () => {
     logoutAction();
@@ -100,8 +100,8 @@ const Layout = () => {
                   to={item.path}
                   onClick={() => setIsSidebarOpen(false)}
                   className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${isActive
-                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold shadow-sm dark:shadow-[inset_3px_0_0_0_#3b82f6]'
-                      : 'text-slate-500 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200'
+                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold shadow-sm dark:shadow-[inset_3px_0_0_0_#3b82f6]'
+                    : 'text-slate-500 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200'
                     } ${item.locked ? 'opacity-70 grayscale dark:opacity-50' : 'opacity-100'}`}
                 >
                   <div className="flex items-center gap-3">
@@ -131,13 +131,13 @@ const Layout = () => {
 
           {/* 🌌 4. User Profile (🔥 PRO FIX: Clickable, Animated & Navigates to /profile) */}
           <div className="p-4 border-t border-slate-100 dark:border-slate-800/50">
-            <div 
-                onClick={() => {
-                    setIsSidebarOpen(false); // Mobile menu එක වහන්න
-                    navigate('/profile'); // Profile එකට යන්න
-                }}
-                className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/50 transition-colors cursor-pointer group"
-                title="Account Settings"
+            <div
+              onClick={() => {
+                setIsSidebarOpen(false); // Mobile menu එක වහන්න
+                navigate('/profile'); // Profile එකට යන්න
+              }}
+              className="flex items-center gap-3 px-4 py-3 mb-2 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/50 transition-colors cursor-pointer group"
+              title="Account Settings"
             >
               <div className="w-10 h-10 rounded-full bg-blue-600 dark:bg-blue-600 flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm border border-blue-700 dark:border-blue-500">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -148,7 +148,7 @@ const Layout = () => {
               </div>
               {/* Hover Arrow Effect */}
               <div className="text-slate-400 dark:text-slate-500 opacity-0 group-hover:opacity-100 transition-all duration-300 -ml-2 group-hover:ml-0">
-                  <ChevronRight size={16} />
+                <ChevronRight size={16} />
               </div>
             </div>
             <button onClick={handleLogout} className="flex items-center justify-center gap-2 w-full px-4 py-3 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 font-bold rounded-xl transition-all">
@@ -170,53 +170,52 @@ const Layout = () => {
                 <Menu size={24} />
               </button>
               {/* 🚀 FIX: Added 'flex-1' to take safe space and 'mr-4' to force a gap before the Toggler */}
-<h1 className="flex-1 text-base md:text-[1.1rem] font-black text-slate-800 dark:text-white uppercase tracking-tight transition-colors truncate min-w-0 mr-4 md:mr-6">
-    {location.pathname.startsWith('/super-admin')
-        ? 'Super Admin Portal'
-        : location.pathname.startsWith('/profile') 
-        ? 'Account Settings'
-        : (menuItems.find(item => location.pathname.startsWith(item.path))?.name || 'Nexus POS')}
-</h1>
+              <h1 className="flex-1 text-base md:text-[1.1rem] font-black text-slate-800 dark:text-white uppercase tracking-tight transition-colors truncate min-w-0 mr-4 md:mr-6">
+                {location.pathname.startsWith('/super-admin')
+                  ? 'Super Admin Portal'
+                  : location.pathname.startsWith('/profile')
+                    ? 'Account Settings'
+                    : (menuItems.find(item => location.pathname.startsWith(item.path))?.name || 'Nexus POS')}
+              </h1>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <ThemeToggle />
-              <span className={`shrink-0 flex items-center justify-center whitespace-nowrap p-1.5 md:px-3 md:py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm transition-colors cursor-default ${
-        hasSuperAdminAccess ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20' :
-        user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20' :
-        user?.role === 'manager' ? 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' :
-        user?.role === 'owner' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' :
-        'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-    }`} title={hasSuperAdminAccess ? 'Super Admin Mode' : `${user?.role || 'Guest'} Mode`}>
-        
-        {/* Dynamic Icons based on Role */}
-        {hasSuperAdminAccess ? <ShieldAlert size={16} className="md:mr-2" /> :
-         user?.role === 'admin' ? <Shield size={16} className="md:mr-2" /> :
-         user?.role === 'manager' ? <Briefcase size={16} className="md:mr-2" /> :
-         user?.role === 'owner' ? <Key size={16} className="md:mr-2" /> :
-         user?.role === 'cashier' ? <Calculator size={16} className="md:mr-2" /> :
-         <User size={16} className="md:mr-2" />}
-        
-        {/* Text hides on mobile (sm) and shows on medium screens and up (md) */}
-        <span className="hidden md:inline">
-            {hasSuperAdminAccess ? 'SUPER ADMIN' : user?.role || 'Guest'} MODE
-        </span>
-    </span>
+              <span className={`shrink-0 flex items-center justify-center whitespace-nowrap p-1.5 md:px-3 md:py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm transition-colors cursor-default ${hasSuperAdminAccess ? 'bg-indigo-100 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20' :
+                  user?.role === 'admin' ? 'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20' :
+                    user?.role === 'manager' ? 'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-500/20' :
+                      user?.role === 'owner' ? 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' :
+                        'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
+                }`} title={hasSuperAdminAccess ? 'Super Admin Mode' : `${user?.role || 'Guest'} Mode`}>
+
+                {/* Dynamic Icons based on Role */}
+                {hasSuperAdminAccess ? <ShieldAlert size={16} className="md:mr-2" /> :
+                  user?.role === 'admin' ? <Shield size={16} className="md:mr-2" /> :
+                    user?.role === 'manager' ? <Briefcase size={16} className="md:mr-2" /> :
+                      user?.role === 'owner' ? <Key size={16} className="md:mr-2" /> :
+                        user?.role === 'cashier' ? <Calculator size={16} className="md:mr-2" /> :
+                          <User size={16} className="md:mr-2" />}
+
+                {/* Text hides on mobile (sm) and shows on medium screens and up (md) */}
+                <span className="hidden md:inline">
+                  {hasSuperAdminAccess ? 'SUPER ADMIN' : user?.role || 'Guest'} MODE
+                </span>
+              </span>
             </div>
             {!isOnline && (
-        <div className="shrink-0 flex items-center justify-center bg-amber-100 text-amber-800 p-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-full text-xs font-black shadow-sm border border-amber-200/60" title="You are Offline">
-            <WifiOff size={16} className="md:mr-2 text-amber-600 animate-pulse" />
-            <span className="hidden md:inline">OFFLINE MODE</span>
-        </div>
-    )}
+              <div className="shrink-0 flex items-center justify-center bg-amber-100 text-amber-800 p-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-full text-xs font-black shadow-sm border border-amber-200/60" title="You are Offline">
+                <WifiOff size={16} className="md:mr-2 text-amber-600 animate-pulse" />
+                <span className="hidden md:inline">OFFLINE MODE</span>
+              </div>
+            )}
 
-    {/* 3. Syncing Badge (Loader Icon on Mobile) */}
-    {pendingOrdersCount > 0 && isOnline && (
-        <div className="shrink-0 flex items-center justify-center bg-blue-100 text-blue-800 p-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-full text-xs font-black shadow-sm border border-blue-200/60" title={`Syncing ${pendingOrdersCount} orders`}>
-            <Loader2 size={16} className="animate-spin md:mr-2 text-blue-600" />
-            <span className="hidden md:inline">Syncing {pendingOrdersCount}</span>
-        </div>
-    )}
+            {/* 3. Syncing Badge (Loader Icon on Mobile) */}
+            {pendingOrdersCount > 0 && isOnline && (
+              <div className="shrink-0 flex items-center justify-center bg-blue-100 text-blue-800 p-1.5 md:px-3 md:py-1.5 rounded-lg md:rounded-full text-xs font-black shadow-sm border border-blue-200/60" title={`Syncing ${pendingOrdersCount} orders`}>
+                <Loader2 size={16} className="animate-spin md:mr-2 text-blue-600" />
+                <span className="hidden md:inline">Syncing {pendingOrdersCount}</span>
+              </div>
+            )}
           </header>
 
           <div className="p-4 md:p-8">

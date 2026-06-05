@@ -224,21 +224,30 @@ const POS = () => {
     };
 
     const clearCart = () => {
-        Swal.fire({
-            title: 'Clear Cart?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#1e293b',
-            confirmButtonText: 'Yes, clear it!',
-            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                clearCartAction();
-                setSelectedCustomer(null);
-                barcodeInputRef.current?.focus();
-            }
-        });
-    };
+    Swal.fire({
+        title: 'Clear Cart?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, clear it!',
+        cancelButtonText: 'Cancel',
+        // 🚀 PRO FIX: අපි Swal එකට කියනවා "ඔයාගේ පරණ Inline Colors පාවිච්චි කරන්න එපා" කියලා
+        buttonsStyling: false, 
+        customClass: { 
+            // Popup එකේ Background එක
+            popup: 'bg-white dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]',
+            // 🚀 අපේ Primary Blue Button එක (Bootstrap වල `btn btn-primary` වගේ)
+            confirmButton: 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-black py-2.5 px-6 rounded-xl mx-2 shadow-lg shadow-blue-600/30 transition-all active:scale-95',
+            // Cancel Button එක (Bootstrap වල `btn btn-secondary` වගේ)
+            cancelButton: 'bg-slate-500 hover:bg-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold py-2.5 px-6 rounded-xl mx-2 shadow-md transition-all active:scale-95'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            clearCartAction();
+            setSelectedCustomer(null);
+            barcodeInputRef.current?.focus();
+        }
+    });
+};
 
     const totalAmount = getTotal();
 
@@ -255,164 +264,273 @@ const POS = () => {
     });
 
     const handleCheckout = async () => {
-        if (cart.length === 0) return;
+    if (cart.length === 0) return;
 
-        const paymentOptions = {
-            'Cash': 'Cash',
-            'Card': 'Card',
-            'Bank Transfer': 'Bank Transfer'
-        };
+    const paymentOptions = [
+        { id: 'Cash', label: 'Cash', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-500"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>' },
+        { id: 'Card', label: 'Card', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>' },
+        { id: 'Bank Transfer', label: 'Bank Tx', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-purple-500"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>' }
+    ];
 
-        if (selectedCustomer) {
-            paymentOptions['Credit'] = 'Credit (Naya Potha)';
+    if (selectedCustomer) {
+        paymentOptions.push({ id: 'Credit', label: 'Credit (Naya)', icon: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>' });
+    }
+
+    const cardsHtml = `
+        <div class="grid grid-cols-2 gap-3 mt-4">
+            ${paymentOptions.map((opt, index) => `
+                <label class="relative cursor-pointer group">
+                    <!-- Hidden Radio Button -->
+                    <input type="radio" name="custom_payment_method" value="${opt.id}" class="peer sr-only" ${index === 0 ? 'checked' : ''}>
+                    
+                    <!-- The Clickable Card -->
+                    <div class="flex flex-col items-center justify-center p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:border-blue-500 dark:peer-checked:bg-blue-500/10 transition-all hover:shadow-md active:scale-95 duration-200">
+                        ${opt.icon}
+                        <span class="block text-[13px] font-black text-slate-700 dark:text-slate-300 peer-checked:text-blue-700 dark:peer-checked:text-blue-400 mt-3 tracking-wide uppercase">${opt.label}</span>
+                    </div>
+
+                    <!-- The Success Checkmark (Appears when selected) -->
+                    <div class="absolute top-3 right-3 opacity-0 peer-checked:opacity-100 transition-all scale-50 peer-checked:scale-100 duration-300">
+                        <div class="bg-blue-600 rounded-full p-1 shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                    </div>
+                </label>
+            `).join('')}
+        </div>
+    `;
+
+    const { value: paymentMethodRaw } = await Swal.fire({
+        title: 'Payment Method',
+        html: cardsHtml, // Injecting our custom HTML grid
+        focusConfirm: false,
+        buttonsStyling: false,
+        showCancelButton: true,
+        confirmButtonText: 'Continue',
+        customClass: { 
+            popup: 'bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700 w-[90%] md:w-[28rem]',
+            title: 'text-2xl font-black text-slate-800 dark:text-white',
+            actions: 'mt-6 w-full flex justify-center gap-4',
+            confirmButton: 'bg-blue-600 hover:bg-blue-700 text-white font-black py-3 px-8 rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-95 w-64',
+            cancelButton: 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 px-8 rounded-xl transition-all active:scale-95 w-64'
+        },
+        // 🚀 PRO FIX: SweetAlert preConfirm extracts the value of our custom hidden radio buttons!
+        preConfirm: () => {
+            const selected = document.querySelector('input[name="custom_payment_method"]:checked');
+            if (!selected) {
+                Swal.showValidationMessage('Please select a payment method!');
+                return false;
+            }
+            return selected.value;
         }
+    });
 
-        const { value: paymentMethodRaw } = await Swal.fire({
-            title: 'Select Payment Method',
-            input: 'radio',
-            inputOptions: paymentOptions,
-            inputValidator: (value) => {
-                if (!value) return 'You need to choose a payment method!'
-            },
-            confirmButtonColor: '#2563eb',
+    if (!paymentMethodRaw) return;
+    const paymentMethod = paymentMethodRaw === 'Credit' ? 'Credit' : paymentMethodRaw;
+
+    if (paymentMethod === 'Credit') {
+        const projectedBalance = selectedCustomer.creditBalance + totalAmount;
+
+        if (projectedBalance > selectedCustomer.creditLimit) {
+            // 2️⃣ PREMIUM CREDIT LIMIT EXCEEDED MODAL
+            return Swal.fire({
+                icon: 'error',
+                title: 'Credit Limit Exceeded!',
+                html: `
+                    <div class="text-left mt-4 p-5 bg-red-50 dark:bg-red-500/10 rounded-2xl border border-red-100 dark:border-red-500/20">
+                        <p class="text-slate-700 dark:text-slate-300 mb-1"><b>Allowed Limit:</b> Rs. ${selectedCustomer.creditLimit.toLocaleString()}</p>
+                        <p class="text-slate-700 dark:text-slate-300 mb-1"><b>Current Debt:</b> Rs. ${selectedCustomer.creditBalance.toLocaleString()}</p>
+                        <p class="text-slate-700 dark:text-slate-300 mb-3"><b>This Bill:</b> Rs. ${totalAmount.toLocaleString()}</p>
+                        <div class="border-t border-red-200 dark:border-red-500/20 pt-3 mt-3">
+                            <p class="text-red-600 dark:text-red-400 font-black text-xl">Shortfall: Rs. ${(projectedBalance - selectedCustomer.creditLimit).toLocaleString()}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm font-bold text-slate-500 dark:text-slate-400 mt-4 uppercase tracking-widest">Please settle previous debts</p>
+                `,
+                buttonsStyling: false,
+                confirmButtonText: 'Cancel Checkout',
+                customClass: { 
+                    popup: 'bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl',
+                    title: 'text-2xl font-black text-slate-800 dark:text-white',
+                    confirmButton: 'mt-4 bg-red-500 hover:bg-red-600 text-white font-black py-3 px-8 rounded-xl shadow-lg shadow-red-500/30 transition-all active:scale-95'
+                }
+            });
+        }
+    }
+
+    let amountPaid = totalAmount;
+    let balance = 0;
+    let referenceNumber = null;
+
+    if (paymentMethod === 'Cash') {
+        const { value: enteredAmount } = await Swal.fire({
+            title: 'Complete Payment',
+            html: `
+                <div class="mb-5 p-4 bg-blue-50 dark:bg-blue-500/10 rounded-2xl border border-blue-100 dark:border-blue-500/20 flex flex-col items-center justify-center">
+                    <p class="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Total to Pay (Cash)</p>
+                    <p class="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">Rs. ${totalAmount.toLocaleString()}</p>
+                </div>
+            `,
+            input: 'number',
+            inputPlaceholder: 'Enter amount received...',
+            buttonsStyling: false,
             showCancelButton: true,
-            customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
+            confirmButtonText: 'Confirm Payment',
+            customClass: { 
+                popup: 'bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700',
+                title: 'text-2xl font-black text-slate-800 dark:text-white mb-2',
+                input: 'text-center text-3xl font-black h-16 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-500 focus:ring-0 transition-all',
+                actions: 'mt-6 w-full flex justify-center gap-4',
+                confirmButton: 'bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3 px-8 rounded-xl shadow-lg shadow-emerald-500/30 transition-all active:scale-95',
+                cancelButton: 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 px-8 rounded-xl transition-all active:scale-95'
+            },
+            inputValidator: (value) => {
+                if (!value || Number(value) < totalAmount) {
+                    return 'Please enter a valid amount equal or greater than the total!';
+                }
+            }
         });
 
-        if (!paymentMethodRaw) return;
-        const paymentMethod = paymentMethodRaw === 'Credit' ? 'Credit' : paymentMethodRaw;
+        if (!enteredAmount) return;
+        amountPaid = Number(enteredAmount);
+        balance = amountPaid - totalAmount;
 
-        if (paymentMethod === 'Credit') {
-            const projectedBalance = selectedCustomer.creditBalance + totalAmount;
+    } else if (paymentMethod === 'Credit') {
+        amountPaid = 0;
+        balance = 0;
 
-            if (projectedBalance > selectedCustomer.creditLimit) {
-                return Swal.fire({
-                    icon: 'error',
-                    title: 'Credit Limit Exceeded!',
-                    html: `
-                        <div class="text-left mt-4 p-4 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
-                            <p class="text-slate-700 dark:text-slate-300 mb-1"><b>Allowed Limit:</b> Rs. ${selectedCustomer.creditLimit.toLocaleString()}</p>
-                            <p class="text-slate-700 dark:text-slate-300 mb-1"><b>Current Debt:</b> Rs. ${selectedCustomer.creditBalance.toLocaleString()}</p>
-                            <p class="text-slate-700 dark:text-slate-300 mb-3"><b>This Bill:</b> Rs. ${totalAmount.toLocaleString()}</p>
-                            <div class="border-t border-red-200 dark:border-red-500/20 pt-2">
-                                <p class="text-red-600 dark:text-red-400 font-black text-lg">Shortfall: Rs. ${(projectedBalance - selectedCustomer.creditLimit).toLocaleString()}</p>
-                            </div>
-                        </div>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Please ask the customer to settle their previous debts or use Cash/Card.</p>
-                    `,
-                    confirmButtonColor: '#d33',
-                    confirmButtonText: 'Cancel Checkout',
-                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
-                });
+    } else if (paymentMethod === 'Bank Transfer') {
+        // 🚀 PREMIUM: Bank Transfer Reference Input Modal
+        const { value: enteredRef } = await Swal.fire({
+            title: 'Verify Transfer',
+            html: `
+                <div class="mb-5 p-4 bg-purple-50 dark:bg-purple-500/10 rounded-2xl border border-purple-100 dark:border-purple-500/20 flex flex-col items-center justify-center">
+                    <p class="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1">Expected Amount</p>
+                    <p class="text-4xl font-black text-slate-800 dark:text-white tracking-tighter">Rs. ${totalAmount.toLocaleString()}</p>
+                </div>
+                <p class="text-sm font-bold text-slate-600 dark:text-slate-400 mb-2">Please check the bank app and enter the Trace/Reference Number below.</p>
+            `,
+            input: 'text',
+            inputPlaceholder: 'e.g. TR-2026-98765...',
+            buttonsStyling: false,
+            showCancelButton: true,
+            confirmButtonText: 'Verify & Confirm',
+            customClass: { 
+                popup: 'bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-700',
+                title: 'text-2xl font-black text-slate-800 dark:text-white mb-2',
+                input: 'text-center text-lg font-bold h-14 rounded-xl border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:border-purple-500 dark:focus:border-purple-500 focus:ring-0 transition-all',
+                actions: 'mt-6 w-full flex justify-center gap-4',
+                confirmButton: 'bg-purple-600 hover:bg-purple-700 text-white font-black py-3 px-8 rounded-xl shadow-lg shadow-purple-600/30 transition-all active:scale-95',
+                cancelButton: 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold py-3 px-8 rounded-xl transition-all active:scale-95'
+            },
+            inputValidator: (value) => {
+                if (!value || value.trim().length < 3) {
+                    return 'Please enter a valid Reference Number!';
+                }
             }
+        });
+
+        if (!enteredRef) return;
+        referenceNumber = enteredRef.trim(); // 🚀 Save the reference number
+    }
+
+    setPaymentInfo({ paid: amountPaid, balance: balance });
+
+    try {
+        Swal.showLoading();
+
+        const orderData = {
+            items: cart.map(item => ({
+                productId: item.productId || item._id,
+                quantity: item.quantity,
+                price: item.price
+            })),
+            paymentMethod: paymentMethod,
+            referenceNumber: referenceNumber, // 🚀 අලුතින් ගත්ත Ref Number එකත් Backend එකට යවනවා
+            customerId: selectedCustomer?._id || null,
+            customerName: selectedCustomer?.name || 'Walk-in Customer',
+            customerPhone: selectedCustomer?.phone || null,
+        };
+
+        const { isOnline, saveOfflineOrder } = useOfflineStore.getState();
+        let finalBillData = null;
+
+        if (isOnline) {
+            try {
+                const res = await API.post('/orders', orderData);
+                if (res.data.success) {
+                    finalBillData = res.data.data;
+                }
+            } catch (networkError) {
+                if (!networkError.response) {
+                    finalBillData = await saveOfflineOrder(orderData);
+                } else {
+                    throw networkError;
+                }
+            }
+        } else {
+            finalBillData = await saveOfflineOrder(orderData);
         }
 
-        let amountPaid = totalAmount;
-        let balance = 0;
+        if (finalBillData) {
+            setBillData(finalBillData);
 
-        if (paymentMethod === 'Cash') {
-            const { value: enteredAmount } = await Swal.fire({
-                title: 'Complete Payment (Cash)',
-                input: 'number',
-                inputLabel: `Total Amount: Rs. ${totalAmount.toLocaleString()}`,
-                confirmButtonColor: '#2563eb',
-                showCancelButton: true,
-                customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]', input: 'dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700' },
-                inputValidator: (value) => {
-                    if (!value || value < totalAmount) {
-                        return 'Please enter a valid amount!';
-                    }
+            const updatedProducts = products.map(p => {
+                const cartItem = cart.find(c => (c.productId || c._id) === p._id);
+                return cartItem ? { ...p, stock: p.stock - cartItem.quantity } : p;
+            });
+            setProducts(updatedProducts);
+
+            // 🚀 PREMIUM SUCCESS MODAL (Updated to show Ref Number)
+            await Swal.fire({
+                icon: 'success',
+                title: isOnline ? 'Payment Successful!' : 'Saved Offline!',
+                html: `
+                    <div class="mt-2 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
+                        <p class="text-lg font-bold text-slate-700 dark:text-slate-300">
+                            ${paymentMethod === 'Cash'
+                                ? `Return Balance: <br><span class="text-emerald-500 font-black text-3xl">Rs. ${balance.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>`
+                                : paymentMethod === 'Credit'
+                                    ? `Added <span class="text-amber-500">Rs. ${totalAmount}</span> to ${selectedCustomer?.name}'s debt`
+                                    : paymentMethod === 'Bank Transfer'
+                                        ? `Paid securely via <span class="text-purple-500 font-black">Bank Transfer</span><br><span class="text-sm font-bold text-slate-500 dark:text-slate-400 block mt-2 px-3 py-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg inline-block">Ref: ${referenceNumber}</span>`
+                                        : `Paid securely via <span class="text-blue-500">${paymentMethod}</span>`
+                            }
+                        </p>
+                    </div>
+                `,
+                footer: !isOnline ? '<span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">⚠️ Syncs automatically when online</span>' : '',
+                confirmButtonText: 'Print Receipt',
+                buttonsStyling: false,
+                customClass: { 
+                    popup: 'bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl',
+                    title: 'text-2xl font-black text-slate-800 dark:text-white',
+                    confirmButton: 'w-64 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-95 text-lg',
+                    footer: 'border-t-0 pt-0 pb-4'
                 }
             });
 
-            if (!enteredAmount) return;
-            amountPaid = Number(enteredAmount);
-            balance = amountPaid - totalAmount;
-        } else if (paymentMethod === 'Credit') {
-            amountPaid = 0;
-            balance = 0;
+            setTimeout(() => {
+                handlePrint();
+            }, 100);
         }
 
-        setPaymentInfo({ paid: amountPaid, balance: balance });
-
-        try {
-            Swal.showLoading();
-
-            const orderData = {
-                items: cart.map(item => ({
-                    productId: item.productId || item._id,
-                    quantity: item.quantity,
-                    price: item.price
-                })),
-                paymentMethod: paymentMethod,
-                customerId: selectedCustomer?._id || null,
-                customerName: selectedCustomer?.name || 'Walk-in Customer',
-                customerPhone: selectedCustomer?.phone || null,
-            };
-
-            const { isOnline, saveOfflineOrder } = useOfflineStore.getState();
-            let finalBillData = null;
-
-            if (isOnline) {
-                try {
-                    // 🌐 ONLINE: Try sending to server
-                    const res = await API.post('/orders', orderData);
-                    if (res.data.success) {
-                        finalBillData = res.data.data;
-                    }
-                } catch (networkError) {
-                    if (!networkError.response) {
-                        // 🌐 Network error during online mode — fallback to offline
-                        console.log("Network failed, saving offline...");
-                        finalBillData = await saveOfflineOrder(orderData);
-                    } else {
-                        // Server returned an error (e.g., 400 Bad Request)
-                        throw networkError;
-                    }
-                }
-            } else {
-                // 📴 EXPLICITLY OFFLINE: Save directly to IndexedDB
-                finalBillData = await saveOfflineOrder(orderData);
+    } catch (error) {
+        console.error(error);
+        Swal.fire({
+            title: 'Error',
+            text: error.response?.data?.error || 'Order processing failed',
+            icon: 'error',
+            buttonsStyling: false,
+            confirmButtonText: 'Try Again',
+            customClass: { 
+                popup: 'bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl',
+                title: 'text-2xl font-black text-slate-800 dark:text-white',
+                confirmButton: 'bg-slate-800 dark:bg-slate-600 hover:bg-slate-700 text-white font-black py-3 px-8 rounded-xl transition-all active:scale-95'
             }
-
-            // If we successfully got data (either from API or Offline Store)
-            if (finalBillData) {
-                setBillData(finalBillData);
-
-                const updatedProducts = products.map(p => {
-                    const cartItem = cart.find(c => (c.productId || c._id) === p._id);
-                    return cartItem ? { ...p, stock: p.stock - cartItem.quantity } : p;
-                });
-                setProducts(updatedProducts);
-
-                await Swal.fire({
-                    icon: 'success',
-                    title: isOnline ? 'Payment Successful!' : 'Saved Offline!',
-                    text: paymentMethod === 'Cash'
-                        ? `Balance to return: Rs. ${balance.toFixed(2)}`
-                        : paymentMethod === 'Credit'
-                            ? `Added Rs. ${totalAmount} to ${selectedCustomer?.name}'s debt`
-                            : `Paid via ${paymentMethod}`,
-                    footer: !isOnline ? 'This sale will automatically sync when you reconnect to the internet.' : '',
-                    confirmButtonText: 'Print Receipt',
-                    customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
-                });
-
-                setTimeout(() => {
-                    handlePrint();
-                }, 100);
-            }
-
-        } catch (error) {
-            console.error(error);
-            Swal.fire({
-                title: 'Error',
-                text: error.response?.data?.error || 'Order processing failed',
-                icon: 'error',
-                customClass: { popup: 'dark:bg-slate-800 dark:text-slate-100 rounded-[2rem]' }
-            });
-        }
-    };
+        });
+    }
+};
 
     if (isLoading) {
         return (

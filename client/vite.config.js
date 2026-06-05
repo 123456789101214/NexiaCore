@@ -64,6 +64,17 @@ export default defineConfig({
       }
     })
   ],
+
+  server: {
+    host: true, // මේකෙන් Network එකට Open වෙනවා (192.168.x.x)
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000', // ඔයාගේ Backend එක දුවන තැන
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  },
   
   build: {
     chunkSizeWarningLimit: 1500,

@@ -38,11 +38,16 @@ const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
 app.use(helmet());
 // Middleware
 app.use(cors({
     origin: [
         'http://localhost:5173',
+        'http://192.168.1.5:5000/api',
         'http://localhost',           // 💻 Local Development වලට
         'https://app.nexiacore.shop',   // 🚀 Vercel Production Link එක (අගට / දාන්න එපා)
         process.env.CLIENT_URL             // (Optional) Railway එකෙන් Variable එකක් දුන්නොත්
