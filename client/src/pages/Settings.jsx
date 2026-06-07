@@ -169,33 +169,56 @@ const Settings = () => {
         <div className="p-4 md:p-8 max-w-6xl mx-auto font-sans animate-in fade-in duration-500 dark:[color-scheme:dark] transition-colors duration-500">
             <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter mb-8 transition-colors">TENANT SETTINGS</h1>
 
-            {/* TABS */}
-            <div className="flex gap-6 mb-8 border-b border-slate-200 dark:border-slate-800 transition-colors">
-                <button onClick={() => setActiveTab('profile')} className={`pb-4 px-2 font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'profile' ? 'border-b-2 border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}><Store size={16} /> Shop Profile</button>
-                <button onClick={() => setActiveTab('subscription')} className={`pb-4 px-2 font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${activeTab === 'subscription' ? 'border-b-2 border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}><CreditCard size={16} /> Subscription & Billing</button>
+            {/* 🚀 PREMIUM UX: Animated TABS */}
+            <div className="flex gap-4 md:gap-6 mb-8 border-b border-slate-200 dark:border-slate-800 transition-colors">
+                <button 
+                    onClick={() => setActiveTab('profile')} 
+                    className={`relative pb-4 px-2 md:px-4 font-black text-[10px] md:text-xs uppercase tracking-widest transition-colors duration-300 flex items-center gap-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-t-2xl ${activeTab === 'profile' ? 'text-blue-600 dark:text-blue-500' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    <Store size={16} className="shrink-0" /> 
+                    <span className="hidden md:inline-block">Shop Profile</span>
+                    <span className="md:hidden">Profile</span> {/* Mobile Short Text */}
+                    
+                    {/* 🚀 ANIMATED UNDERLINE MAGIC */}
+                    <span className={`absolute bottom-0 left-0 w-full h-[3px] rounded-t-full bg-blue-600 dark:bg-blue-500 transition-transform duration-300 ease-out origin-left ${activeTab === 'profile' ? 'scale-x-100' : 'scale-x-0'}`}></span>
+                </button>
+                
+                <button 
+                    onClick={() => setActiveTab('subscription')} 
+                    className={`relative pb-4 px-2 md:px-4 font-black text-[10px] md:text-xs uppercase tracking-widest transition-colors duration-300 flex items-center gap-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 rounded-t-2xl ${activeTab === 'subscription' ? 'text-blue-600 dark:text-blue-500' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                >
+                    <CreditCard size={16} className="shrink-0" /> 
+                    <span className="hidden md:inline-block">Subscription & Billing</span>
+                    <span className="md:hidden">Billing</span> {/* Mobile Short Text */}
+                    
+                    {/* 🚀 ANIMATED UNDERLINE MAGIC */}
+                    <span className={`absolute bottom-0 left-0 w-full h-[3px] rounded-t-full bg-blue-600 dark:bg-blue-500 transition-transform duration-300 ease-out origin-left ${activeTab === 'subscription' ? 'scale-x-100' : 'scale-x-0'}`}></span>
+                </button>
             </div>
 
             {/* TAB 1: SHOP PROFILE */}
             {activeTab === 'profile' && (
-                <form onSubmit={handleProfileSave} className="bg-white dark:bg-slate-900/60 backdrop-blur-md p-8 rounded-[2rem] shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800/60 max-w-4xl transition-colors">
+                /* 🚀 Smooth Fade & Slide In Animation */
+                <form onSubmit={handleProfileSave} className="bg-white dark:bg-slate-900/60 backdrop-blur-md p-6 md:p-8 rounded-[2rem] shadow-sm dark:shadow-none border border-slate-100 dark:border-slate-800/60 max-w-4xl transition-colors animate-in fade-in zoom-in-[0.98] slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Shop Name</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:bg-white dark:focus:bg-slate-800 transition-colors" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Phone Number</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:bg-white dark:focus:bg-slate-800 transition-colors" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} /></div>
-                        <div className="md:col-span-2"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Physical Address</label><textarea className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:bg-white dark:focus:bg-slate-800 transition-colors" rows="2" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Base Currency</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:bg-white dark:focus:bg-slate-800 uppercase transition-colors" value={formData.currency} onChange={e => setFormData({ ...formData, currency: e.target.value })} /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Tax Rate (%)</label><input type="number" step="0.01" min="0" max="100" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:bg-white dark:focus:bg-slate-800 transition-colors" value={formData.taxRate} onChange={e => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })} /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Invoice Prefix</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:bg-white dark:focus:bg-slate-800 uppercase transition-colors" value={formData.billPrefix} onChange={e => setFormData({ ...formData, billPrefix: e.target.value })} /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Shop Name</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Phone Number</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} /></div>
+                        <div className="md:col-span-2"><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Physical Address</label><textarea className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all" rows="2" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Base Currency</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 uppercase transition-all" value={formData.currency} onChange={e => setFormData({ ...formData, currency: e.target.value })} /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Tax Rate (%)</label><input type="number" step="0.01" min="0" max="100" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 transition-all" value={formData.taxRate} onChange={e => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })} /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1 transition-colors">Invoice Prefix</label><input type="text" className="w-full mt-2 p-4 bg-slate-50 dark:bg-slate-900/50 border-none rounded-2xl font-bold text-sm text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-800 uppercase transition-all" value={formData.billPrefix} onChange={e => setFormData({ ...formData, billPrefix: e.target.value })} /></div>
                     </div>
-                    <button type="submit" className="mt-10 px-8 py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-[1.5rem] flex items-center gap-2 hover:bg-blue-700 active:scale-95 shadow-xl shadow-blue-100 dark:shadow-none transition-all"><Save size={16} /> Save Configuration</button>
+                    <button type="submit" className="mt-8 md:mt-10 w-full md:w-auto px-8 py-4 bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-[1.5rem] flex justify-center items-center gap-2 hover:bg-blue-700 active:scale-95 shadow-xl shadow-blue-100 dark:shadow-none transition-all"><Save size={16} /> Save Configuration</button>
                 </form>
             )}
 
             {/* TAB 2: SUBSCRIPTION */}
             {activeTab === 'subscription' && (
-                <div className="space-y-8 animate-in slide-in-from-right-8 duration-300">
+                /* 🚀 Smooth Fade & Slide In Animation */
+                <div className="space-y-8 animate-in fade-in zoom-in-[0.98] slide-in-from-bottom-4 duration-500">
 
                     {wasRejected && !hasAnyPending && latestPayment && (
-                        <div className="bg-red-50 dark:bg-red-500/10 border-l-4 border-red-500 p-5 rounded-r-2xl flex items-center gap-4 font-bold text-sm shadow-sm dark:shadow-none mb-4 animate-in slide-in-from-left-4 duration-300 transition-colors">
+                        <div className="bg-red-50 dark:bg-red-500/10 border-l-4 border-red-500 p-5 rounded-r-2xl flex items-center gap-4 font-bold text-sm shadow-sm dark:shadow-none mb-4 transition-colors">
                             <XCircle className="text-red-500 dark:text-red-400 shrink-0 transition-colors" size={28} />
                             <div className="flex flex-col">
                                 <span className="text-red-800 dark:text-red-400 uppercase tracking-tight font-black transition-colors">Verification Failed</span>
@@ -215,64 +238,94 @@ const Settings = () => {
 
                     {shopData?.planStatus === 'trial' && !hasAnyPending && (
                         <div className={`p-5 rounded-2xl flex items-center gap-3 font-bold text-sm border-l-4 transition-colors ${trialDaysRemaining <= 3 ? 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-500' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500'}`}>
-                            <AlertCircle size={20} />
+                            <AlertCircle size={20} className="shrink-0" />
                             <p>Your SaaS trial ends in {trialDaysRemaining} days. Upgrade to secure your data.</p>
                         </div>
                     )}
 
                     {/* Current Plan Overview */}
-                    <div className="bg-slate-900 dark:bg-slate-950/80 text-white p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center transition-colors">
+                    <div className="bg-slate-900 dark:bg-slate-950/80 text-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center transition-colors">
                         <div className="absolute top-0 right-0 opacity-10"><CreditCard size={200} className="-mt-10 -mr-10" /></div>
                         <div className="relative z-10">
                             <p className="text-slate-400 font-black uppercase tracking-widest text-[10px] mb-3 transition-colors">Active Subscription</p>
-                            <h2 className="text-5xl font-black uppercase tracking-tighter flex items-center gap-4 transition-colors">
+                            <h2 className="text-4xl md:text-5xl font-black uppercase tracking-tighter flex items-center gap-4 transition-colors">
                                 {shopData?.subscriptionPlan || 'FREE'}
-                                <span className={`px-4 py-1.5 text-xs rounded-full font-black tracking-widest transition-colors ${shopData?.planStatus === 'active' ? 'bg-emerald-500' : shopData?.planStatus === 'pending_verification' ? 'bg-amber-500' : 'bg-red-500'} text-white`}>{shopData?.planStatus || 'ACTIVE'}</span>
+                                <span className={`px-4 py-1.5 text-[10px] md:text-xs rounded-full font-black tracking-widest transition-colors ${shopData?.planStatus === 'active' ? 'bg-emerald-500' : shopData?.planStatus === 'pending_verification' ? 'bg-amber-500' : 'bg-red-500'} text-white`}>{shopData?.planStatus || 'ACTIVE'}</span>
                             </h2>
                             {shopData?.planExpiresAt && <p className="text-slate-400 text-xs font-bold mt-4 uppercase tracking-widest transition-colors">Valid until: <span className="text-white">{new Date(shopData.planExpiresAt).toLocaleDateString()}</span></p>}
                         </div>
                     </div>
 
-                    {/* Pricing Comparison Table */}
-                    <div className="bg-white dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden shadow-sm dark:shadow-none transition-colors">
-                        <div className="grid grid-cols-4 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors">
-                            <div className="p-5 font-black text-slate-400 dark:text-slate-500 uppercase text-[10px] tracking-widest transition-colors">Platform Features</div>
-                            <div className={`p-5 font-black text-center uppercase tracking-tighter text-xl transition-colors ${shopData?.subscriptionPlan === 'free' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10' : 'text-slate-800 dark:text-slate-200'}`}>Free</div>
-                            <div className={`p-5 font-black text-center uppercase tracking-tighter text-xl transition-colors ${shopData?.subscriptionPlan === 'pro' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10' : 'text-slate-800 dark:text-slate-200'}`}>Pro</div>
-                            <div className={`p-5 font-black text-center uppercase tracking-tighter text-xl transition-colors ${shopData?.subscriptionPlan === 'enterprise' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10' : 'text-slate-800 dark:text-slate-200'}`}>Elite</div>
-                        </div>
+                    {/* 🚀 PREMIUM FIX: Responsive Pricing Table with Icon Animations */}
+                    <div className="bg-white dark:bg-slate-900/60 backdrop-blur-md rounded-[2rem] border border-slate-100 dark:border-slate-800/60 overflow-hidden shadow-sm dark:shadow-none transition-colors relative">
+                        {/* Wrapper for Horizontal Scroll on tiny screens */}
+                        <div className="overflow-x-auto scrollbar-hide">
+                            <div className="min-w-[450px] md:min-w-full">
+                                
+                                {/* Header */}
+                                <div className="grid grid-cols-4 bg-slate-50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800/60 transition-colors">
+                                    <div className="p-4 md:p-5 font-black text-slate-400 dark:text-slate-500 uppercase text-[9px] md:text-[10px] tracking-widest transition-colors flex items-center">Platform Features</div>
+                                    <div className={`p-4 md:p-5 font-black text-center uppercase tracking-tighter text-base md:text-xl transition-colors flex justify-center items-center ${shopData?.subscriptionPlan === 'free' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10' : 'text-slate-800 dark:text-slate-200'}`}>Free</div>
+                                    <div className={`p-4 md:p-5 font-black text-center uppercase tracking-tighter text-base md:text-xl transition-colors flex justify-center items-center ${shopData?.subscriptionPlan === 'pro' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10' : 'text-slate-800 dark:text-slate-200'}`}>Pro</div>
+                                    <div className={`p-4 md:p-5 font-black text-center uppercase tracking-tighter text-base md:text-xl transition-colors flex justify-center items-center ${shopData?.subscriptionPlan === 'enterprise' ? 'text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/10' : 'text-slate-800 dark:text-slate-200'}`}>Elite</div>
+                                </div>
 
-                        {[
-                            { label: 'Monthly Investment', free: 'Rs. 0', pro: 'Rs. 2,999', ent: 'Custom' },
-                            { label: 'Inventory Limit', free: '500 Items', pro: '5,000 Items', ent: 'Unlimited' },
-                            { label: 'Staff Accounts', free: '2 Users', pro: '10 Users', ent: 'Unlimited' }
-                        ].map((row, idx) => (
-                            <div key={idx} className="grid grid-cols-4 border-b border-slate-50 dark:border-slate-800/50 last:border-none transition-colors">
-                                <div className="p-5 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors">{row.label}</div>
-                                <div className="p-5 text-sm font-black text-center text-slate-700 dark:text-slate-300 transition-colors">{row.free}</div>
-                                <div className="p-5 text-sm font-black text-center text-slate-700 dark:text-slate-300 transition-colors">{row.pro}</div>
-                                <div className="p-5 text-sm font-black text-center text-slate-700 dark:text-slate-300 transition-colors">{row.ent}</div>
-                            </div>
-                        ))}
+                                {/* Rows */}
+                                {[
+                                    { label: 'Monthly Inv.', free: 'Rs. 0', pro: 'Rs. 2,999', ent: 'Custom' },
+                                    { label: 'Inventory', free: '500', pro: '5,000', ent: 'Unlimited' },
+                                    { label: 'Staff Accts', free: '2', pro: '10', ent: 'Unlimited' }
+                                ].map((row, idx) => (
+                                    <div key={idx} className="grid grid-cols-4 border-b border-slate-50 dark:border-slate-800/50 last:border-none transition-colors hover:bg-slate-50/30 dark:hover:bg-slate-800/20">
+                                        <div className="p-4 md:p-5 text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase transition-colors flex items-center">{row.label}</div>
+                                        <div className="p-4 md:p-5 text-xs md:text-sm font-black text-center text-slate-700 dark:text-slate-300 transition-colors flex justify-center items-center">{row.free}</div>
+                                        <div className="p-4 md:p-5 text-xs md:text-sm font-black text-center text-slate-700 dark:text-slate-300 transition-colors flex justify-center items-center">{row.pro}</div>
+                                        <div className="p-4 md:p-5 text-xs md:text-sm font-black text-center text-slate-700 dark:text-slate-300 transition-colors flex justify-center items-center">{row.ent}</div>
+                                    </div>
+                                ))}
 
-                        <div className="grid grid-cols-4 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800/60 transition-colors">
-                            <div className="p-5"></div>
-                            <div className="p-5 text-center flex justify-center items-center">
-                                {isFreeCurrent ? <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 transition-colors"><CheckCircle2 size={12} /> Current</span> : null}
-                            </div>
-                            <div className="p-5 text-center flex justify-center items-center">
-                                {isProCurrent ? <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"><CheckCircle2 size={12} /> Current</span> : (
-                                    <button onClick={() => openUpgradeModal('pro')} disabled={hasAnyPending || shopData?.planStatus === 'pending_verification'} className={`px-6 py-3 text-white rounded-[1rem] text-[10px] uppercase tracking-widest font-black transition-all flex items-center gap-2 active:scale-95 shadow-md ${hasAnyPending || shopData?.planStatus === 'pending_verification' ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 shadow-blue-200 dark:shadow-none'}`}>
-                                        {isProPending ? <Clock size={14} /> : <ArrowUpCircle size={14} />} {isProPending ? 'Pending' : 'Deploy Pro'}
-                                    </button>
-                                )}
-                            </div>
-                            <div className="p-5 text-center flex justify-center items-center">
-                                {isEntCurrent ? <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"><CheckCircle2 size={12} /> Current</span> : (
-                                    <button onClick={() => openUpgradeModal('enterprise')} disabled={hasAnyPending || shopData?.planStatus === 'pending_verification'} className={`px-6 py-3 text-white rounded-[1rem] text-[10px] uppercase tracking-widest font-black transition-all flex items-center gap-2 active:scale-95 ${hasAnyPending || shopData?.planStatus === 'pending_verification' ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed' : 'bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500'}`}>
-                                        {isEntPending ? <Clock size={14} /> : <ArrowUpCircle size={14} />} {isEntPending ? 'Pending' : 'Contact Sales'}
-                                    </button>
-                                )}
+                                {/* Actions Row */}
+                                <div className="grid grid-cols-4 bg-slate-50/50 dark:bg-slate-800/30 border-t border-slate-100 dark:border-slate-800/60 transition-colors">
+                                    <div className="p-4 md:p-5"></div>
+                                    <div className="p-4 md:p-5 flex justify-center items-center">
+                                        {isFreeCurrent ? <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1 transition-colors"><CheckCircle2 size={12} /> Current</span> : null}
+                                    </div>
+                                    
+                                    {/* 🚀 ANIMATED BUTTON: Deploy Pro */}
+                                    <div className="p-4 md:p-5 flex justify-center items-center">
+                                        {isProCurrent ? <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"><CheckCircle2 size={12} /> Current</span> : (
+                                            <button 
+                                                onClick={() => openUpgradeModal('pro')} 
+                                                disabled={hasAnyPending || shopData?.planStatus === 'pending_verification'} 
+                                                className={`flex items-center justify-center h-10 w-10 md:h-auto md:w-auto md:px-6 md:py-3 text-white rounded-xl md:rounded-[1rem] transition-all duration-300 active:scale-95 group overflow-hidden ${hasAnyPending || shopData?.planStatus === 'pending_verification' ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 shadow-md shadow-blue-200 dark:shadow-none'}`}
+                                            >
+                                                {isProPending ? <Clock size={16} className="shrink-0 animate-pulse" /> : <ArrowUpCircle size={16} className="shrink-0 md:group-hover:-translate-y-[2px] transition-transform duration-300" />}
+                                                
+                                                {/* Text completely hidden on mobile, slides open smoothly on desktop */}
+                                                <span className="hidden md:inline-block max-w-0 opacity-0 md:max-w-[120px] md:opacity-100 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] whitespace-nowrap text-[10px] uppercase font-black tracking-widest md:ml-2">
+                                                    {isProPending ? 'Pending' : 'Deploy Pro'}
+                                                </span>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* 🚀 ANIMATED BUTTON: Contact Sales */}
+                                    <div className="p-4 md:p-5 flex justify-center items-center">
+                                        {isEntCurrent ? <span className="text-[10px] font-black text-blue-500 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"><CheckCircle2 size={12} /> Current</span> : (
+                                            <button 
+                                                onClick={() => openUpgradeModal('enterprise')} 
+                                                disabled={hasAnyPending || shopData?.planStatus === 'pending_verification'} 
+                                                className={`flex items-center justify-center h-10 w-10 md:h-auto md:w-auto md:px-6 md:py-3 text-white rounded-xl md:rounded-[1rem] transition-all duration-300 active:scale-95 group overflow-hidden ${hasAnyPending || shopData?.planStatus === 'pending_verification' ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed' : 'bg-slate-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-500 shadow-md shadow-slate-200 dark:shadow-none'}`}
+                                            >
+                                                {isEntPending ? <Clock size={16} className="shrink-0 animate-pulse" /> : <ArrowUpCircle size={16} className="shrink-0 md:group-hover:-translate-y-[2px] transition-transform duration-300" />}
+                                                
+                                                <span className="hidden md:inline-block max-w-0 opacity-0 md:max-w-[150px] md:opacity-100 transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] whitespace-nowrap text-[10px] uppercase font-black tracking-widest md:ml-2">
+                                                    {isEntPending ? 'Pending' : 'Contact Sales'}
+                                                </span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

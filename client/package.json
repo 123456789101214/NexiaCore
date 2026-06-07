@@ -23,6 +23,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0",
+    "react-tailwindcss-datepicker": "^2.0.0",
     "react-to-print": "^3.3.0",
     "recharts": "^3.8.1",
     "sweetalert2": "^11.26.24",

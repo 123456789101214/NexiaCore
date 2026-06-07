@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useRef , useState, useEffect, useMemo } from 'react';
 import API from '../services/api';
 import useAuthStore from '../store/authStore';
 import {
-    Search, Download, Eye, TrendingUp, DollarSign, ShoppingBag, X, ChevronDown, WifiOff 
+    Search, Download, Eye, TrendingUp, DollarSign, ShoppingBag, X, ChevronDown, WifiOff, Calendar  
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import FeatureGate from '../components/FeatureGate';
@@ -31,6 +31,8 @@ const SalesHistory = () => {
     const [showVoided, setShowVoided] = useState(false);
     const [isMonthOpen, setIsMonthOpen] = useState(false);
     const [isYearOpen, setIsYearOpen] = useState(false);
+    const startDateRef = useRef(null);
+    const endDateRef = useRef(null);
 
     const [selectedMonth, setSelectedMonth] = useState({
         month: new Date().getMonth(),
@@ -234,85 +236,104 @@ const SalesHistory = () => {
                         </button>
                     ))}
                     
-                    {filterMode === 'month' && (
-                        <div className="flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
-                            {/* CUSTOM MONTH DROPDOWN */}
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setIsMonthOpen(!isMonthOpen)}
-                                    className="flex items-center gap-2 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 px-4 py-2 rounded-2xl shadow-sm dark:shadow-none text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest hover:border-blue-400 dark:hover:border-blue-500 transition-all active:scale-95"
-                                >
-                                    {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][selectedMonth.month]}
-                                    <ChevronDown size={14} className={`transition-transform duration-300 ${isMonthOpen ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {isMonthOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-10" onClick={() => setIsMonthOpen(false)}></div>
-                                        <div className="absolute top-full left-0 mt-2 w-32 bg-white/90 dark:bg-[#0f172a]/95 backdrop-blur-xl border border-white dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden z-20 py-1 animate-in slide-in-from-top-2 duration-200 transition-colors">
-                                            {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
-                                                <button
-                                                    key={m}
-                                                    onClick={() => {
-                                                        setSelectedMonth({...selectedMonth, month: i});
-                                                        setIsMonthOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-4 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors
-                                                        ${selectedMonth.month === i ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400'}
-                                                    `}
-                                                >
-                                                    {m}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* CUSTOM YEAR DROPDOWN */}
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setIsYearOpen(!isYearOpen)}
-                                    className="flex items-center gap-2 bg-white dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 px-4 py-2 rounded-2xl shadow-sm dark:shadow-none text-[11px] font-black text-slate-600 dark:text-slate-300 tracking-widest hover:border-blue-400 dark:hover:border-blue-500 transition-all active:scale-95"
-                                >
-                                    {selectedMonth.year}
-                                    <ChevronDown size={14} className={`transition-transform duration-300 ${isYearOpen ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                {isYearOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-10" onClick={() => setIsYearOpen(false)}></div>
-                                        <div className="absolute top-full left-0 mt-2 w-28 bg-white/90 dark:bg-[#0f172a]/95 backdrop-blur-xl border border-white dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden z-20 py-1 animate-in slide-in-from-top-2 duration-200 transition-colors">
-                                            {[2024, 2025, 2026].map(y => (
-                                                <button
-                                                    key={y}
-                                                    onClick={() => {
-                                                        setSelectedMonth({...selectedMonth, year: y});
-                                                        setIsYearOpen(false);
-                                                    }}
-                                                    className={`w-full text-left px-4 py-2 text-[10px] font-bold tracking-widest transition-colors
-                                                        ${selectedMonth.year === y ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:text-blue-600 dark:hover:text-blue-400'}
-                                                    `}
-                                                >
-                                                    {y}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="h-6 w-[1px] bg-slate-100 dark:bg-slate-800 mx-2 hidden md:block transition-colors"></div>
+                    {/* 🚀 PREMIUM FIX: Sequential Animated Date Picker (Sales Analytics Version) */}
+{/* 🚀 PREMIUM UX: Animated Sequential Date Picker with Clear Button */}
+<div className="h-6 w-[1px] bg-slate-100 dark:bg-slate-800 mx-2 hidden md:block transition-colors"></div>
                     
-                    <div className="flex items-center gap-2">
-                        <input type="date" value={dateFilter.start} className="bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl px-3 py-1.5 text-[10px] font-bold text-slate-600 dark:text-slate-400 transition-colors" onChange={(e) => { setDateFilter({ ...dateFilter, start: e.target.value }); setFilterMode('custom'); }} />
-                        <span className="text-slate-300 dark:text-slate-600 text-[10px] font-bold uppercase tracking-tighter transition-colors">to</span>
-                        <input type="date" value={dateFilter.end} className="bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl px-3 py-1.5 text-[10px] font-bold text-slate-600 dark:text-slate-400 transition-colors" onChange={(e) => { setDateFilter({ ...dateFilter, end: e.target.value }); setFilterMode('custom'); }} />
+                    {/* 🚀 PREMIUM UX: Sequential Date Pickers (Bug-Free) */}
+                    <div className="w-full md:w-auto flex flex-col md:flex-row items-center gap-2 flex-1 md:flex-initial">
+                        
+                        {/* STEP 1: START DATE */}
+                        <div 
+                            onClick={() => {
+                                if (startDateRef.current && typeof startDateRef.current.showPicker === 'function') {
+                                    startDateRef.current.showPicker();
+                                }
+                            }}
+                            className="w-full md:w-[140px] relative flex items-center bg-slate-50 dark:bg-slate-900/50 px-3 py-2.5 md:py-2 rounded-xl border border-slate-200/60 dark:border-slate-700/50 cursor-pointer shadow-inner group hover:border-blue-400 transition-all"
+                        >
+                            <Calendar size={12} className="text-slate-400 dark:text-slate-500 shrink-0 group-hover:scale-110 group-hover:text-blue-500 transition-all z-10" />
+                            
+                            {/* Bulletproof Mobile Placeholder */}
+                            {!dateFilter.start && (
+                                <span className="absolute left-[30px] text-[10px] font-bold uppercase tracking-wider text-slate-400 pointer-events-none z-10">
+                                    Start Date
+                                </span>
+                            )}
+
+                            <input 
+                                ref={startDateRef}
+                                type="date" 
+                                value={dateFilter.start} 
+                                onChange={(e) => {
+                                    const newStart = e.target.value;
+                                    // 🚀 BUG FIX: Auto-open (setTimeout) එක අයින් කරා. දැන් මාස මාරු කරද්දී පනින්නේ නෑ!
+                                    setDateFilter({ ...dateFilter, start: newStart, end: newStart ? dateFilter.end : '' });
+                                    setFilterMode('custom');
+                                }} 
+                                className={`w-full pl-2 bg-transparent border-none text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full ${dateFilter.start ? 'text-slate-600 dark:text-slate-300' : 'text-transparent'}`} 
+                            />
+                        </div>
+
+                        {/* STEP 2: END DATE & CLEAR BUTTON */}
+                        <div className={`w-full md:w-auto flex items-center gap-2 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                            dateFilter.start 
+                            ? 'max-h-[100px] md:max-w-[400px] opacity-100 translate-y-0 md:translate-x-0 mt-2 md:mt-0' 
+                            : 'max-h-0 md:max-w-0 opacity-0 -translate-y-4 md:-translate-y-0 md:-translate-x-4 pointer-events-none'
+                        }`}>
+                            <span className="text-slate-300 dark:text-slate-600 text-[10px] font-bold uppercase tracking-tighter shrink-0 hidden md:block">To</span>
+                            
+                            <div 
+                                onClick={() => {
+                                    if (endDateRef.current && typeof endDateRef.current.showPicker === 'function') {
+                                        endDateRef.current.showPicker();
+                                    }
+                                }}
+                                className="flex-1 md:w-[140px] relative flex items-center bg-indigo-50 dark:bg-indigo-500/10 px-3 py-2.5 md:py-2 rounded-xl border border-indigo-200/60 dark:border-indigo-500/30 cursor-pointer shadow-inner group hover:border-indigo-400 transition-all"
+                            >
+                                <Calendar size={12} className="text-indigo-400 dark:text-indigo-500 shrink-0 group-hover:scale-110 group-hover:text-indigo-600 transition-all z-10" />
+                                
+                                {/* Bulletproof Mobile Placeholder */}
+                                {!dateFilter.end && (
+                                    <span className="absolute left-[30px] text-[10px] font-bold uppercase tracking-wider text-indigo-400/70 pointer-events-none z-10">
+                                        End Date
+                                    </span>
+                                )}
+
+                                <input 
+                                    ref={endDateRef}
+                                    type="date" 
+                                    min={dateFilter.start} 
+                                    value={dateFilter.end} 
+                                    onChange={(e) => {
+                                        setDateFilter({ ...dateFilter, end: e.target.value });
+                                        setFilterMode('custom');
+                                    }} 
+                                    className={`w-full pl-2 bg-transparent border-none text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:w-full ${dateFilter.end ? 'text-indigo-600 dark:text-indigo-300' : 'text-transparent'}`} 
+                                />
+                            </div>
+
+                            {/* THE CLEAR BUTTON */}
+                            {(dateFilter.start || dateFilter.end) && (
+                                <button 
+                                    onClick={() => { 
+                                        setDateFilter({ start: '', end: '' }); 
+                                        setFilterMode('all'); 
+                                    }} 
+                                    className="flex items-center justify-center z-[40] p-2.5 md:p-2 bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 hover:text-red-600 rounded-xl transition-all shrink-0 active:scale-95"
+                                    title="Clear Custom Dates"
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <button onClick={exportToCSV} className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-2 rounded-xl font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all shadow-sm dark:shadow-none ml-auto md:ml-0">
+                    {/* 🚀 PREMIUM FIX: Mobile Centered Export Button */}
+                    <button 
+                        onClick={exportToCSV} 
+                        className="w-full md:w-auto flex justify-center items-center gap-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-3 md:py-2 rounded-xl font-bold text-xs hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-all shadow-sm dark:shadow-none ml-0 md:ml-auto mt-2 md:mt-0 active:scale-95"
+                    >
                         <Download size={16} /> Export
                     </button>
                 </div>
