@@ -125,42 +125,60 @@ const SmartAlerts = () => {
                     50% { background-position: 100% 50%; }
                     100% { background-position: 0% 50%; }
                 }
-                /* 🔴 Critical Alert - 50% Softer Glow */
-                @keyframes neon-glow-critical {
+
+                /* ☀️ LIGHT MODE ANIMATIONS (Softer, cleaner glows for white background) */
+                @keyframes neon-glow-critical-light {
+                    0%, 100% { box-shadow: 0 0 8px rgba(249, 115, 22, 0.15), 0 0 12px rgba(239, 68, 68, 0.05); }
+                    50% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.25), 0 0 25px rgba(249, 115, 22, 0.15); }
+                }
+                @keyframes neon-glow-normal-light {
+                    0%, 100% { box-shadow: 0 0 8px rgba(59, 130, 246, 0.15), 0 0 12px rgba(6, 182, 212, 0.05); }
+                    50% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.25), 0 0 25px rgba(6, 182, 212, 0.15); }
+                }
+
+                /* 🌙 DARK MODE ANIMATIONS (Vivid, deeper glows for dark background) */
+                @keyframes neon-glow-critical-dark {
                     0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2), 0 0 12px rgba(239, 68, 68, 0.1); }
                     50% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.45), 0 0 25px rgba(245, 158, 11, 0.3); }
                 }
-                /* 🔵 Normal State - 50% Softer Glow */
-                @keyframes neon-glow-normal {
+                @keyframes neon-glow-normal-dark {
                     0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.15), 0 0 12px rgba(168, 85, 247, 0.05); }
                     50% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.4), 0 0 25px rgba(168, 85, 247, 0.25); }
                 }
                 
+                /* Default to Light Mode */
                 .neon-card-critical {
                     background-size: 200% 200%;
-                    animation: neon-pan 2s linear infinite, neon-glow-critical 2s ease-in-out infinite;
+                    animation: neon-pan 2s linear infinite, neon-glow-critical-light 2s ease-in-out infinite;
                 }
                 .neon-card-normal {
                     background-size: 200% 200%;
-                    animation: neon-pan 3s linear infinite, neon-glow-normal 2.5s ease-in-out infinite;
+                    animation: neon-pan 3s linear infinite, neon-glow-normal-light 2.5s ease-in-out infinite;
+                }
+
+                /* Override if Tailwind .dark is active */
+                .dark .neon-card-critical {
+                    animation: neon-pan 2s linear infinite, neon-glow-critical-dark 2s ease-in-out infinite;
+                }
+                .dark .neon-card-normal {
+                    animation: neon-pan 3s linear infinite, neon-glow-normal-dark 2.5s ease-in-out infinite;
                 }
             `}
         </style>
 
         <div className="mb-10">
             {/* Dashboard Card */}
-            {/* 🚀 Change: p-[3px] (Thicker border) and dynamic neon class assignment */}
             <div 
                 onClick={() => setIsDrawerOpen(true)} 
                 className={`group cursor-pointer relative p-[3px] rounded-[2.5rem] hover:scale-[1.015] active:scale-95 transition-all duration-300 ${
                     totalCritical > 0 ? 'neon-card-critical' : 'neon-card-normal'
                 }`}
             >
-                {/* Dynamic Gradient Layer */}
-                <div className={`absolute inset-0 rounded-[2.5rem] bg-gradient-to-r ${
+                {/* 🚀 THE MAGIC: Tailwind Dark/Light Mode Gradient Classes */}
+                <div className={`absolute inset-0 rounded-[2.5rem] transition-colors duration-500 ${
                     totalCritical > 0 
-                    ? 'from-orange-500 via-amber-400 to-red-600' 
-                    : 'from-indigo-500 via-purple-500 to-blue-600'
+                    ? 'bg-gradient-to-r from-rose-400 via-orange-400 to-red-500 dark:from-orange-500 dark:via-amber-400 dark:to-red-600' 
+                    : 'bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 dark:from-indigo-500 dark:via-purple-500 dark:to-blue-600'
                 }`}></div>
 
                 {/* Main Card Content Layer */}
