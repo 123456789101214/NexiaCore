@@ -49,6 +49,7 @@ app.use(cors({
         'http://localhost:5173',
         'http://192.168.1.5:5000/api',
         'http://localhost',           // 💻 Local Development වලට
+        'https://app.nexiacore.shop', 
         'https://app.nexiacore.shop',   // 🚀 Vercel Production Link එක (අගට / දාන්න එපා)
         process.env.CLIENT_URL             // (Optional) Railway එකෙන් Variable එකක් දුන්නොත්
     ].filter(Boolean),
