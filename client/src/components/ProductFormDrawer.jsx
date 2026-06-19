@@ -52,7 +52,7 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
         }
     };
 
-    const handleSaveProduct = async (e) => {
+const handleSaveProduct = async (e) => {
     if (e) e.preventDefault();
 
     const data = new FormData();
@@ -62,18 +62,24 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
         }
     });
 
+    // 👑 FIX 1: ෆොටෝ එක තියෙනවා නම් 'image' විදිහට යවනවා, නැත්නම් පරණ URL එක යවනවා
     if (imageFile) {
         data.append('image', imageFile);
-    } else if (typeof formData.image === 'string') {
+    } else if (typeof formData.image === 'string' && formData.image.startsWith('http')) {
         data.append('imageUrl', formData.image);
     }
 
     try {
-        // 👑 ARCHITECT FIX 1: NEVER set Content-Type manually for FormData in Axios
-        // Axios automatically detects FormData and adds the correct boundary.
+        // 👑 FIX 2: Interceptor එක bypass කරලා හරියටම Multipart විදිහට යවන්න කියනවා
+        const config = {
+            headers: { 
+                'Content-Type': 'multipart/form-data' 
+            }
+        };
+
         const res = editData
-            ? await API.put(`/products/${editData._id}`, data)
-            : await API.post('/products', data);
+            ? await API.put(`/products/${editData._id}`, data, config)
+            : await API.post('/products', data, config);
 
         if (res.data.success) {
             Swal.fire({
@@ -83,36 +89,11 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
                 customClass: { popup: 'dark:bg-slate-900 dark:text-white rounded-[2rem]' }
             });
             onSuccess(); 
-            onClose();   
+            if (typeof onClose === 'function') onClose();   
         }
     } catch (error) {
+        // ... (පරණ Error Handling කෑල්ල එහෙම්මම තියන්න)
         console.error("Save Product Error:", error);
-
-        if (error.response?.status === 403) {
-            Swal.fire({
-                title: '👑 Product Limit Reached',
-                text: error.response?.data?.error || 'You have reached the maximum number of products allowed for your current plan.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: '⚡ Upgrade Plan Now',
-                cancelButtonText: 'Maybe Later',
-                confirmButtonColor: '#2563eb',
-                cancelButtonColor: '#64748b',
-                customClass: { popup: 'rounded-[2rem] shadow-2xl p-6 dark:bg-slate-900 dark:text-white' }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    if (typeof onClose === 'function') onClose(); 
-                    navigate('/settings'); 
-                }
-            });
-        } else {
-            Swal.fire({
-                title: 'Upload Error',
-                text: error.response?.data?.message || error.response?.data?.error || 'Failed to save product. Check the image format or size.',
-                icon: 'error',
-                customClass: { popup: 'rounded-[2rem] dark:bg-slate-900 dark:text-white' }
-            });
-        }
     }
 };
 

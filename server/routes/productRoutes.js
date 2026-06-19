@@ -95,7 +95,7 @@ router.route('/')
 router.route('/:id')
     .put(
         authorize('owner', 'admin', 'manager'), 
-        upload.single('image'), 
+        upload.single('image'),
         updateProduct
     )
     .delete(

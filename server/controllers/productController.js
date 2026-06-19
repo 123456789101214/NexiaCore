@@ -22,20 +22,26 @@ const DEFAULT_IMAGE = 'https://via.placeholder.com/150'; // FIX 2: plain URL, no
 // ─── ADD PRODUCT ──────────────────────────────────────────────────────────────
 export const addProduct = async (req, res) => {
     try {
-        // 💡 1. 'imageUrl' එකත් req.body එකෙන් ගන්නවා (AI එකෙන් එවන String URL එක)
         const { name, barcode, category, buyingPrice, price, stock, unit, minStockLevel, expiryDate, imageUrl } = req.body;
         const shopId = req.user.shopId;
 
-        // 💡 2. IMAGE FIX: Multer එකෙන් ආපු ෆයිල් එකක් තියෙනවද බලනවා. නැත්නම් AI URL එක ගන්නවා. දෙකම නැත්නම් Default එක.
+        // 👑 ARCHITECT FIX 1: Strict Image URL Parsing & Null Guard
+        // Prevent "{}" or "[object Object]" from ever reaching the database
         const DEFAULT_IMAGE = 'https://placehold.co/150?text=No+Image';
-        const finalImageUrl = req.file ? req.file.path : (imageUrl || DEFAULT_IMAGE);
+        let finalImageUrl = DEFAULT_IMAGE;
 
-        // 💡 3. ARCHIVED PRODUCT FIX: Barcode එක දැනටමත් තියෙනවද බලනවා
+        if (req.file && req.file.path) {
+            finalImageUrl = req.file.path; // Priority 1: New Uploaded File via Cloudinary
+        } else if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '') {
+            finalImageUrl = imageUrl; // Priority 2: Valid String URL (From AI or Frontend)
+        }
+
+        // 💡 ARCHIVED PRODUCT FIX: Barcode check
         if (barcode) {
             const existing = await Product.findOne({ shopId, barcode });
             if (existing) {
                 if (existing.status === 'archived') {
-                    // Archive කරපු එකක් නම්, අලුතින් හදන්නේ නැතුව ඒකම යාවත්කාලීන (Update) කරලා Active කරනවා ♻️
+                    // Archive කරපු එකක් නම්, Update කරලා Active කරනවා ♻️
                     existing.name = name;
                     existing.category = category || 'General';
                     existing.buyingPrice = buyingPrice;
@@ -43,25 +49,31 @@ export const addProduct = async (req, res) => {
                     existing.stock = stock;
                     existing.unit = unit || 'pcs';
                     existing.minStockLevel = minStockLevel;
-                    existing.expiryDate = expiryDate;
+                    existing.expiryDate = expiryDate || null;
                     existing.image = finalImageUrl;
                     existing.status = 'active'; // 👈 ආපහු Active කරනවා
 
                     await existing.save();
                     return res.status(200).json({ success: true, data: existing, message: 'Archived product restored successfully!' });
                 } else {
-                    // ඇත්තටම Active බඩුවක් තියෙනවා නම් Error එකක් දෙනවා
                     return res.status(400).json({ success: false, error: 'A product with this barcode already exists in your shop.' });
                 }
             }
         }
 
-        // 4. අලුත්ම බඩුවක් නම් සාමාන්‍ය විදිහට Create කරනවා
+        // 4. Create New Product
         const product = await Product.create({
-            shopId, name,
+            shopId, 
+            name,
             barcode: barcode || null,
-            category, buyingPrice, price, stock, unit, minStockLevel, expiryDate,
-            image: finalImageUrl, // 👈 හරියටම ගලපපු Image එක මෙතනින් සේව් වෙනවා
+            category: category || 'General', 
+            buyingPrice, 
+            price, 
+            stock, 
+            unit: unit || 'pcs', 
+            minStockLevel, 
+            expiryDate: expiryDate || null,
+            image: finalImageUrl, // 👈 100% Clean String URL 
             status: 'active',
             createdBy: req.user._id
         });
@@ -101,12 +113,29 @@ export const getProducts = async (req, res) => {
 // ─── UPDATE PRODUCT ───────────────────────────────────────────────────────────
 export const updateProduct = async (req, res) => {
     try {
+        console.log("=== UPDATE PRODUCT DEBUG ===");
+        console.log("req.file:", req.file); // මේක undefined ද බලන්න
+        console.log("req.body:", req.body); 
+        console.log("============================");
         const { id } = req.params;
         const shopId = req.user.shopId;
+        
+        // 👑 ARCHITECT FIX 2: Data Sanitization
         const updateData = { ...req.body, updatedBy: req.user._id };
+        const providedImageUrl = req.body.imageUrl; // Frontend එකෙන් එවන පරණ URL එක
 
-        // FIX 3: req.file.path works because cloudinary is configured
-        if (req.file) updateData.image = req.file.path;
+        // Mongoose Crash එක නවත්තන්න, raw body එකෙන් එන අවුල්සහගත image objects අයින් කරනවා
+        delete updateData.image; 
+        delete updateData.imageUrl; 
+
+        // 👑 ARCHITECT FIX 3: Strict Image Resolution
+        if (req.file && req.file.path) {
+            // අලුතෙන් ෆොටෝ එකක් අප්ලෝඩ් කරලා නම් ඒක ගන්නවා
+            updateData.image = req.file.path; 
+        } else if (providedImageUrl && typeof providedImageUrl === 'string' && providedImageUrl.trim() !== '') {
+            // අලුත් ෆොටෝ එකක් නැත්නම්, Frontend එකෙන් ආපු පරණ URL එකම (String එකක් නම් විතරක්) ගන්නවා
+            updateData.image = providedImageUrl;
+        }
 
         const existing = await Product.findById(id);
         if (!existing) {
@@ -118,13 +147,15 @@ export const updateProduct = async (req, res) => {
 
         const product = await Product.findOneAndUpdate(
             { _id: id, shopId },
-            updateData,
-            { new: true, runValidators: true }
+            { $set: updateData },
+            // 👑 FIX 3: Mongoose 9 Architect Standard - 'new: true' වෙනුවට මේක දාන්න
+            { returnDocument: 'after', runValidators: true } 
         );
 
         res.status(200).json({ success: true, data: product });
     } catch (error) {
-        res.status(400).json({ success: false, error: error.message });
+        console.error("Update Product Error:", error);
+        res.status(400).json({ success: false, error: error.message || 'Failed to update product.' });
     }
 };
 
