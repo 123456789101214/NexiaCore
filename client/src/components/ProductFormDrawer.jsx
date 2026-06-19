@@ -53,70 +53,68 @@ const ProductFormDrawer = ({ isOpen, onClose, onSuccess, editData }) => {
     };
 
     const handleSaveProduct = async (e) => {
-        if (e) e.preventDefault();
+    if (e) e.preventDefault();
 
-        const data = new FormData();
-        Object.keys(formData).forEach(key => {
-            if (formData[key] !== null && formData[key] !== undefined && key !== 'image') {
-                data.append(key, formData[key]);
-            }
-        });
-
-        if (imageFile) {
-            data.append('image', imageFile);
-        } else if (typeof formData.image === 'string') {
-            data.append('imageUrl', formData.image);
+    const data = new FormData();
+    Object.keys(formData).forEach(key => {
+        if (formData[key] !== null && formData[key] !== undefined && key !== 'image') {
+            data.append(key, formData[key]);
         }
+    });
 
-        try {
-            const config = {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            };
+    if (imageFile) {
+        data.append('image', imageFile);
+    } else if (typeof formData.image === 'string') {
+        data.append('imageUrl', formData.image);
+    }
 
-            const res = editData
-                ? await API.put(`/products/${editData._id}`, data, config)
-                : await API.post('/products', data, config);
+    try {
+        // 👑 ARCHITECT FIX 1: NEVER set Content-Type manually for FormData in Axios
+        // Axios automatically detects FormData and adds the correct boundary.
+        const res = editData
+            ? await API.put(`/products/${editData._id}`, data)
+            : await API.post('/products', data);
 
-            if (res.data.success) {
-                Swal.fire({
-                    title: 'Success!', 
-                    text: 'Product saved successfully', 
-                    icon: 'success',
-                    customClass: { popup: 'dark:bg-slate-900 dark:text-white rounded-[2rem]' }
-                });
-                onSuccess(); 
-                onClose();   
-            }
-        } catch (error) {
-            console.error("Save Product Error:", error);
-
-            if (error.response?.status === 403) {
-                Swal.fire({
-                    title: '👑 Product Limit Reached',
-                    text: error.response?.data?.error || 'You have reached the maximum number of products allowed for your current plan.',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: '⚡ Upgrade Plan Now',
-                    cancelButtonText: 'Maybe Later',
-                    confirmButtonColor: '#2563eb',
-                    cancelButtonColor: '#64748b',
-                    customClass: { popup: 'rounded-[2rem] shadow-2xl p-6 dark:bg-slate-900 dark:text-white' }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        if (typeof onClose === 'function') onClose(); 
-                        navigate('/settings'); 
-                    }
-                });
-            } else {
-                Swal.fire({
-                    title: 'Error',
-                    text: error.response?.data?.message || 'Failed to save product. Check the image format or size.',
-                    icon: 'error',
-                    customClass: { popup: 'rounded-[2rem] dark:bg-slate-900 dark:text-white' }
-                });
-            }
+        if (res.data.success) {
+            Swal.fire({
+                title: 'Success!', 
+                text: 'Product saved successfully', 
+                icon: 'success',
+                customClass: { popup: 'dark:bg-slate-900 dark:text-white rounded-[2rem]' }
+            });
+            onSuccess(); 
+            onClose();   
         }
-    };
+    } catch (error) {
+        console.error("Save Product Error:", error);
+
+        if (error.response?.status === 403) {
+            Swal.fire({
+                title: '👑 Product Limit Reached',
+                text: error.response?.data?.error || 'You have reached the maximum number of products allowed for your current plan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '⚡ Upgrade Plan Now',
+                cancelButtonText: 'Maybe Later',
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#64748b',
+                customClass: { popup: 'rounded-[2rem] shadow-2xl p-6 dark:bg-slate-900 dark:text-white' }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (typeof onClose === 'function') onClose(); 
+                    navigate('/settings'); 
+                }
+            });
+        } else {
+            Swal.fire({
+                title: 'Upload Error',
+                text: error.response?.data?.message || error.response?.data?.error || 'Failed to save product. Check the image format or size.',
+                icon: 'error',
+                customClass: { popup: 'rounded-[2rem] dark:bg-slate-900 dark:text-white' }
+            });
+        }
+    }
+};
 
     return (
         <div className={`fixed inset-0 z-[100] overflow-hidden transition-all duration-500 ${isOpen ? 'visible' : 'invisible'}`}>

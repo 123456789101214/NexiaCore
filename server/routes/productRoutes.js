@@ -17,7 +17,7 @@ import { requireFeature, checkProductLimit } from '../middleware/planMiddleware.
 import { protect, authorize } from '../middleware/authMiddleware.js';
 // import { checkSubscription } from '../middleware/subscriptionMiddleware.js';
 // import { checkProductLimit } from '../middleware/planMiddleware.js';
-import upload from '../config/cloudinary.js';
+import upload, { uploadMemory } from '../config/cloudinary.js';
 import { getSmartAlerts } from '../controllers/analyticsController.js';
 import { bulkUploadMiddleware } from '../config/bulkUploadMiddleware.js';
 
@@ -33,10 +33,22 @@ router.get('/barcode-lookup/:barcode', protect, lookupBarcode);
 // 🛡️ High-level management requires proper authorization
 // router.post('/bulk-upload', protect, authorize('owner','admin'), requireFeature('bulkUpload'), checkProductLimit, bulkUploadProducts);
 router.post(
+    '/bulk-upload', 
+    protect, 
+    authorize('owner', 'admin', 'manager'), 
+    requireFeature('bulkUpload'), 
+    uploadMemory.single('excel'), // 👈 Must be uploadMemory
+    bulkUploadFromExcel
+);
+router.post(
     '/bulk-upload-images',
     protect,
     authorize('owner', 'admin'),
     requireFeature('bulkUpload'),
+    uploadMemory.fields([         // 👈 Must be uploadMemory
+        { name: 'excel', maxCount: 1 }, 
+        { name: 'images', maxCount: 1 }
+    ]),
     (req, res, next) => bulkUploadMiddleware(req, res, (err) => {
         if (err) return res.status(400).json({ success: false, error: err.message });
         next();
