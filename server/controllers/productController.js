@@ -159,6 +159,28 @@ export const updateProduct = async (req, res) => {
     }
 };
 
+// =========================================================================
+// 👑 ARCHITECT HELPER: Extract EXACT Public ID from ANY Cloudinary URL
+// මේකෙන් Version Tags, Sub-folders ඔක්කොම මඟහැරලා හරිම ID එක ගන්නවා
+// =========================================================================
+const getCloudinaryPublicId = (url) => {
+    if (!url || !url.includes('cloudinary.com')) return null;
+    try {
+        const parts = url.split('/upload/');
+        if (parts.length < 2) return null;
+        
+        let path = parts[1];
+        // Remove version tag if exists (e.g., v1712345678/)
+        if (path.match(/^v\d+\//)) {
+            path = path.replace(/^v\d+\//, '');
+        }
+        // Remove file extension (.jpg, .png)
+        return path.substring(0, path.lastIndexOf('.'));
+    } catch (error) {
+        return null;
+    }
+};
+
 // ─── DELETE PRODUCT (Soft Delete) ────────────────────────────────────────────
 export const deleteProduct = async (req, res) => {
     try {
@@ -170,13 +192,14 @@ export const deleteProduct = async (req, res) => {
             return res.status(404).json({ success: false, message: "Product not found or unauthorized" });
         }
 
-        if (product.image && product.image.includes('cloudinary')) {
+        // 👑 FIX 1: Safely delete from Cloudinary using new Helper
+        const publicId = getCloudinaryPublicId(product.image);
+        if (publicId) {
             try {
-                const urlParts = product.image.split('/');
-                const publicId = urlParts.slice(-2).join('/').split('.')[0];
                 await cloudinary.uploader.destroy(publicId);
+                console.log(`✅ Cloudinary Image Deleted: ${publicId}`);
             } catch (cloudErr) {
-                console.error(`Cloudinary Delete Failed:`, cloudErr);
+                console.error(`⚠️ Cloudinary Delete Failed:`, cloudErr.message);
             }
         }
 
@@ -200,20 +223,23 @@ export const bulkArchiveProducts = async (req, res) => {
             return res.status(404).json({ success: false, message: "No active products to archive" });
         }
 
-        for (const product of products) {
-            if (product.image && product.image.includes('cloudinary')) {
+        // 👑 FIX 2: Parallel image deletion (ගොඩක් බඩු තියෙද්දී වේගවත් කරන්න)
+        const deletePromises = products.map(async (product) => {
+            const publicId = getCloudinaryPublicId(product.image);
+            if (publicId) {
                 try {
-                    const publicId = product.image.split('/').slice(-2).join('/').split('.')[0];
                     await cloudinary.uploader.destroy(publicId);
                 } catch (err) {
-                    console.error("Cloudinary bulk delete failed:", err);
+                    console.error(`⚠️ Cloudinary bulk delete failed for ${publicId}:`, err.message);
                 }
             }
-        }
+        });
+        await Promise.all(deletePromises); // ඔක්කොම images එකපාර මකනවා
 
+        const DEFAULT_IMAGE = 'https://placehold.co/150?text=No+Image';
         await Product.updateMany(
             { shopId, status: 'active' },
-            { $set: { status: 'archived', image: DEFAULT_IMAGE } } // FIX 2: correct URL
+            { $set: { status: 'archived', image: DEFAULT_IMAGE } } 
         );
 
         res.status(200).json({ success: true, message: `All ${products.length} products archived!` });
@@ -228,127 +254,243 @@ export const bulkArchiveProducts = async (req, res) => {
 // The old barcode_1 index conflicts with the new compound {shopId+barcode} index.
 export const bulkUploadProducts = async (req, res) => {
     try {
-        const { products } = req.body;
-        const shopId = req.user.shopId;
-
-        if (!products || !Array.isArray(products) || products.length === 0) {
-            return res.status(400).json({ success: false, message: "Invalid or empty product list" });
+        if (!req.files || !req.files.excel) {
+            return res.status(400).json({ success: false, message: "Excel file is required" });
         }
 
-        // ━━━ 🛡️ SMART PLAN LIMIT CHECK (EXCEL SECURED) ━━━
+        const shopId = req.user.shopId;
+        const updatedBy = req.user._id;
 
-        // 1. දැනට ඩේටාබේස් එකේ තියෙන ඇක්ටිව් (Archived නොවන) ප්‍රොඩක්ට්ස් ගාණ ගන්නවා
+        // 👑 FIX 3: Local declaration for DEFAULT_IMAGE added
+        const DEFAULT_IMAGE = 'https://placehold.co/150?text=No+Image';
+
+        // 1. Parse Excel from Buffer
+        const workbook = xlsx.read(req.files.excel[0].buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const products = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+        if (!products || products.length === 0) {
+            return res.status(400).json({ success: false, message: "Excel file is empty" });
+        }
+
+        // ━━━ 🛡️ SMART PLAN LIMIT CHECK ━━━
         const currentCount = await Product.countDocuments({
-            $or: [{ shop: shopId }, { shopId: shopId }],
+            shopId: shopId,
             status: { $ne: 'archived' }
         });
 
         const effectivePlan = await getEffectivePlan(shopId);
         const limit = PLAN_FEATURES[effectivePlan]?.maxProducts || 500;
 
-        // ලිමිට් එක Infinity නොවේ නම් විතරක් චෙක් කරනවා
         if (limit !== Infinity) {
-
-            // 2. Excel එකෙන් එන ඔක්කොම බාර්කෝඩ් ටික ක්ලීන් කරලා Array එකකට ගන්නවා
             const incomingBarcodes = products.map(rawProduct => {
+                // 👑 FIX 4: Regex space replacement for dynamic key extraction
                 const cleanP = Object.keys(rawProduct).reduce((acc, key) => {
-                    acc[key.toLowerCase().trim()] = rawProduct[key];
+                    acc[key.toLowerCase().trim().replace(/\s+/g, '')] = rawProduct[key];
                     return acc;
                 }, {});
                 return cleanP['barcode'] ? String(cleanP['barcode']).trim() : null;
             }).filter(Boolean);
 
-            // 3. මේ බාර්කෝඩ් වලින් කීයක් දැනටමත් ඩේටාබේස් එකේ ඇක්ටිව්ව තියෙනවද බලනවා
             const existingProducts = await Product.find({
-                $or: [{ shop: shopId }, { shopId: shopId }],
+                shopId: shopId,
                 barcode: { $in: incomingBarcodes },
                 status: { $ne: 'archived' }
             }).select('barcode');
 
             const existingBarcodeSet = new Set(existingProducts.map(p => p.barcode));
 
-            // 4. ඇත්තටම අලුතින්ම ඉන්සර්ට් (Insert) වෙන්න යන අයිටම්ස් ගාණ විතරක් ගණන් හදනවා (Updates අයින් කරලා)
             let newInsertsCount = 0;
             products.forEach(rawProduct => {
+                // 👑 FIX 4: Second usage patched
                 const cleanP = Object.keys(rawProduct).reduce((acc, key) => {
-                    acc[key.toLowerCase().trim()] = rawProduct[key];
+                    acc[key.toLowerCase().trim().replace(/\s+/g, '')] = rawProduct[key];
                     return acc;
                 }, {});
                 const barcodeVal = cleanP['barcode'] ? String(cleanP['barcode']).trim() : null;
 
-                // බාර්කෝඩ් එකක් නැත්නම් හෝ ඒ බාර්කෝඩ් එක දැනට DB එකේ නැත්නම් ඒක අලුත් ප්‍රොඩක්ට් එකක්
                 if (!barcodeVal || !existingBarcodeSet.has(barcodeVal)) {
                     newInsertsCount++;
                 }
             });
 
-            // 5. දැනට තියෙන ගාණ + අලුත් ගාණ එකතු කරලා ලිමිට් එක පනිනවද බලනවා
             if ((currentCount + newInsertsCount) > limit) {
                 return res.status(403).json({
                     success: false,
-                    error: `Bulk upload blocked. Your plan allows a maximum of ${limit} active products. ` +
-                        `You currently have ${currentCount} active products. This Excel file contains ${newInsertsCount} new products, ` +
-                        `which would exceed your plan limit by ${(currentCount + newInsertsCount) - limit} products. ` +
-                        `Note: Updating existing barcodes is allowed, but adding new ones is blocked.`
+                    error: `Bulk upload blocked. Your plan allows max ${limit} active products. You have ${currentCount}. Excel contains ${newInsertsCount} new items.`
                 });
             }
         }
 
-        // ━━━ 📑 ORIGINAL BULKWRITE OPERATIONS LOGIC (100% UNCHANGED) ━━━
-        const operations = products.map(rawProduct => {
+        // ━━━ 🖼️ PROCESS ZIP IMAGES ━━━
+        const imageMap = {};
+        if (req.files.images) {
+            try {
+                const zip = new AdmZip(req.files.images[0].buffer);
+                const zipEntries = zip.getEntries();
+                zipEntries.forEach((entry) => {
+                    if (!entry.isDirectory && !entry.entryName.includes('__MACOSX') && !entry.entryName.includes('.DS_Store')) {
+                        const ext = entry.entryName.split('.').pop().toLowerCase();
+                        if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                            const fileName = entry.entryName.split('/').pop();
+                            imageMap[fileName] = entry.getData();
+                        }
+                    }
+                });
+            } catch (error) {
+                return res.status(400).json({ success: false, message: "Invalid ZIP format" });
+            }
+        }
+
+        // ━━━ 🏷️ DYNAMIC CATEGORY SYNC ━━━
+        const uniqueCategories = [...new Set(products.map(rawProduct => {
             const cleanP = Object.keys(rawProduct).reduce((acc, key) => {
-                acc[key.toLowerCase().trim()] = rawProduct[key];
+                acc[key.toLowerCase().trim().replace(/\s+/g, '')] = rawProduct[key];
+                return acc;
+            }, {});
+            return cleanP['category'] ? String(cleanP['category']).trim() : 'General';
+        }))];
+
+        try {
+            const existingCategories = await Category.find({ shopId }).select('name');
+            const existingCategoryNames = new Set(existingCategories.map(c => c.name.toLowerCase()));
+
+            const newCategoriesToInsert = uniqueCategories
+                .filter(cat => !existingCategoryNames.has(cat.toLowerCase()))
+                .map(cat => ({
+                    shopId,
+                    name: cat,
+                    status: 'active',
+                    createdBy: updatedBy
+                }));
+
+            if (newCategoriesToInsert.length > 0) {
+                await Category.insertMany(newCategoriesToInsert, { ordered: false });
+                console.log(`✅ ${newCategoriesToInsert.length} new categories dynamically synced!`);
+            }
+        } catch (catError) {
+            console.warn("⚠️ Category sync issue (Skipping to products):", catError.message);
+        }
+
+        // ━━━ 📑 BULK WRITE OPERATIONS ━━━
+        const operations = [];
+        const errorRows = [];
+        let uploadedImageCount = 0;
+
+        for (let i = 0; i < products.length; i++) {
+            const rawProduct = products[i];
+            const cleanP = Object.keys(rawProduct).reduce((acc, key) => {
+                acc[key.toLowerCase().trim().replace(/\s+/g, '')] = rawProduct[key];
                 return acc;
             }, {});
 
-            const barcodeVal = cleanP['barcode'] ? String(cleanP['barcode']).trim() : null;
+            if (!cleanP['name'] || cleanP['price'] === undefined) {
+                errorRows.push({ row: i + 2, name: cleanP['name'] || 'Unknown', reason: 'Missing name or price' });
+                continue;
+            }
 
-            return {
+            // ━━━ 🖼️ SMART IMAGE MATCHING ENGINE ━━━
+            let imageUrl = cleanP['image'] || DEFAULT_IMAGE; 
+            let matchedBuffer = null;
+            let matchedFileName = null;
+
+            const exactImgName = cleanP['imagefilename'];
+            const barcodeVal = cleanP['barcode'] ? String(cleanP['barcode']).trim() : null;
+            const barcodeJpg = barcodeVal ? `${barcodeVal}.jpg` : null;
+            const barcodePng = barcodeVal ? `${barcodeVal}.png` : null;
+
+            const skuVal = cleanP['sku'] ? String(cleanP['sku']).trim() : null;
+            const skuJpg = skuVal ? `${skuVal}.jpg` : null;
+            const skuPng = skuVal ? `${skuVal}.png` : null;
+
+            const normalizedProductName = cleanP['name']
+                ? cleanP['name'].toLowerCase().replace(/[^a-z0-9]/g, '')
+                : null;
+
+            if (exactImgName && imageMap[exactImgName]) {
+                matchedBuffer = imageMap[exactImgName];
+                matchedFileName = exactImgName;
+            } else if (barcodeVal && imageMap[barcodeJpg]) {
+                matchedBuffer = imageMap[barcodeJpg];
+                matchedFileName = barcodeJpg;
+            } else if (barcodeVal && imageMap[barcodePng]) {
+                matchedBuffer = imageMap[barcodePng];
+                matchedFileName = barcodePng;
+            } else if (skuVal && imageMap[skuJpg]) {
+                matchedBuffer = imageMap[skuJpg];
+                matchedFileName = skuJpg;
+            } else if (skuVal && imageMap[skuPng]) {
+                matchedBuffer = imageMap[skuPng];
+                matchedFileName = skuPng;
+            } else if (normalizedProductName) {
+                const zipFileNames = Object.keys(imageMap);
+                const fuzzyMatch = zipFileNames.find(file => {
+                    const normalizedFile = file.split('.')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+                    return normalizedFile === normalizedProductName;
+                });
+
+                if (fuzzyMatch) {
+                    matchedBuffer = imageMap[fuzzyMatch];
+                    matchedFileName = fuzzyMatch;
+                }
+            }
+
+            if (matchedBuffer) {
+                try {
+                    imageUrl = await uploadBufferToCloudinary(matchedBuffer, matchedFileName);
+                    uploadedImageCount++;
+                    delete imageMap[matchedFileName];
+                } catch (imgError) {
+                    console.error(`Failed to upload ${matchedFileName}`);
+                }
+            }
+
+            const filter = barcodeVal
+                ? { shopId, barcode: barcodeVal }
+                : { _id: new mongoose.Types.ObjectId() };
+
+            operations.push({
                 updateOne: {
-                    filter: barcodeVal
-                        ? { shopId, barcode: barcodeVal }
-                        : { _id: new mongoose.Types.ObjectId() },
+                    filter,
                     update: {
                         $set: {
                             shopId,
-                            name: cleanP['name'] || 'Unnamed Product',
+                            name: cleanP['name'],
                             barcode: barcodeVal,
+                            sku: cleanP['sku'] ? String(cleanP['sku']) : undefined,
                             category: cleanP['category'] || 'General',
                             buyingPrice: Number(cleanP['buyingprice']) || 0,
                             price: Number(cleanP['price']) || 0,
                             stock: Number(cleanP['stock']) || 0,
-                            image: cleanP['image'] || DEFAULT_IMAGE,
+                            minStockLevel: Number(cleanP['minstocklevel']) || 5,
+                            image: imageUrl,
                             status: 'active',
-                            unit: cleanP['unit'] || 'pcs'
+                            unit: cleanP['unit'] || 'pcs',
+                            updatedBy
                         }
                     },
                     upsert: true
                 }
-            };
-        });
+            });
+        }
 
         const result = await Product.bulkWrite(operations, { ordered: false });
 
         res.status(200).json({
             success: true,
-            message: `${products.length} products processed.`,
+            message: `${operations.length} products processed.`,
             inserted: result.upsertedCount,
-            updated: result.modifiedCount
+            updated: result.modifiedCount,
+            imagesUploaded: uploadedImageCount,
+            errors: errorRows
         });
 
     } catch (error) {
         console.error("Bulk Upload Error:", error);
-
         if (error.code === 11000) {
-            const dupKey = error.writeErrors?.[0]?.err?.keyValue;
-            return res.status(400).json({
-                success: false,
-                error: `Duplicate barcode found: "${dupKey?.barcode || 'unknown'}". ` +
-                    `Run this in MongoDB to fix: db.products.dropIndex("barcode_1")`
-            });
+            return res.status(400).json({ success: false, error: "Duplicate barcode found." });
         }
-
-        res.status(500).json({ success: false, error: 'Bulk upload failed. Check server logs.' });
+        res.status(500).json({ success: false, error: 'Upload failed. Check server logs.' });
     }
 };
 
@@ -935,22 +1077,22 @@ export const lookupBarcode = async (req, res) => {
 // 🛠️ INTERNAL HELPERS FOR GOOGLE DRIVE URL CONVERSION & UPLOAD
 // =========================================================================
 
+// =========================================================================
+// 🚀 URL CONVERTER & UPLOADER HELPERS (Fixed Missing Fallback)
+// =========================================================================
+
 const convertToDirectUrl = (url) => {
     if (!url || typeof url !== 'string') return null;
     const trimmed = url.trim();
 
-    // Google Drive: /file/d/FILE_ID/view → uc?export=download&id=FILE_ID
+    // Google Drive URL Formats
     const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    if (driveMatch) {
-        return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
-    }
+    if (driveMatch) return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
 
-    // Google Drive open format: open?id=FILE_ID
     const driveOpen = trimmed.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
-    if (driveOpen) {
-        return `https://drive.google.com/uc?export=download&id=${driveOpen[1]}`;
-    }
+    if (driveOpen) return `https://drive.google.com/uc?export=download&id=${driveOpen[1]}`;
 
+    // Dropbox URL Format
     if (trimmed.includes('dropbox.com')) {
         try {
             const dbUrl = new URL(trimmed);
@@ -958,9 +1100,15 @@ const convertToDirectUrl = (url) => {
             dbUrl.searchParams.set('dl', '1');
             return dbUrl.toString();
         } catch (error) {
-            return null; // URL එක අවුල් නම් Invalid කියලා අයින් කරනවා
+            return null; 
         }
     }   
+
+    // 👑 FIX 3: THE MISSING FALLBACK! 
+    // සාමාන්‍ය ලින්ක් එකක් (උදා: https://image.com/pic.jpg) ආවොත් ඒක ඒ විදිහටම Return කරන්න ඕනේ!
+    if (trimmed.startsWith('http')) return trimmed;
+
+    return null;
 };
 
 const downloadAndUploadToCloudinary = (url, productName, shopId) => {
@@ -969,30 +1117,37 @@ const downloadAndUploadToCloudinary = (url, productName, shopId) => {
             const directUrl = convertToDirectUrl(url);
             if (!directUrl) { resolve(null); return; }
 
-            // 🛡️ SECURITY FIX 1: SSRF Protection (Whitelisting Domains)
+            // 🛡️ SECURITY FIX 1: Exact or valid subdomain SSRF check (Domain-boundary awareness)
             try {
-                const ALLOWED_HOSTS = ['drive.google.com', 'dropbox.com', 'dl.dropboxusercontent.com', 'res.cloudinary.com'];
+                const ALLOWED_HOSTS = [
+                    'drive.google.com', 'dropbox.com', 'dl.dropboxusercontent.com', 
+                    'res.cloudinary.com', 'images.unsplash.com', 'firebasestorage.googleapis.com'
+                ];
                 const parsed = new URL(directUrl);
-                if (!ALLOWED_HOSTS.some(h => parsed.hostname.endsWith(h))) {
+                
+                const isAllowedHost = (hostname, allowedHosts) =>
+                    allowedHosts.some(h => hostname === h || hostname.endsWith(`.${h}`));
+
+                if (!isAllowedHost(parsed.hostname, ALLOWED_HOSTS)) {
                     console.warn(`[Security Alert] Blocked unauthorized URL fetch attempt for host: ${parsed.hostname}`);
-                    return resolve(null); // අනවසර ලින්ක් එකක් නම් ප්‍රතික්ෂේප කරනවා
+                    return resolve(null); 
                 }
             } catch (err) {
-                return resolve(null); // URL එකේ අවුලක් නම් අයින් කරනවා
+                return resolve(null); 
             }
 
             cloudinary.uploader.upload(directUrl, {
-                folder: `nexiacore_products/${shopId}`,
+                folder: `smart-pos-products/${shopId}`, 
                 public_id: `${Date.now()}_${productName.replace(/\s+/g, '_').slice(0, 30)}`,
                 resource_type: 'image',
-                timeout: 20000, 
+                timeout: 60000, 
                 transformation: [
                     { width: 500, height: 500, crop: 'limit' },
                     { quality: 'auto', fetch_format: 'auto' }
                 ]
             }, (error, result) => {
                 if (error) {
-                    console.warn(`[Cloudinary] Upload failed for "${productName}":`, error.message);
+                    console.warn(`[Cloudinary URL Upload] Failed for "${productName}":`, error.message);
                     resolve(null); 
                 } else {
                     resolve(result.secure_url);
@@ -1023,8 +1178,6 @@ export const bulkUploadFromExcel = async (req, res) => {
 
         // 🛡️ SECURITY FIX 3: Magic Bytes validation to block disguised malware
         const type = await fileTypeFromBuffer(req.file.buffer);
-        // Note: CSV files are plain text, so `type` will be undefined for them.
-        // Excel files (.xlsx) are actually zipped XMLs, so they return as 'zip' or 'xlsx'.
         if (type && !['xlsx', 'xls', 'zip'].includes(type.ext)) {
             console.warn(`[Security Alert] Malicious file detected. Fake extension used by user: ${req.user._id}`);
             return res.status(400).json({ success: false, error: "Invalid binary file detected. Security restriction applied." });
@@ -1037,7 +1190,6 @@ export const bulkUploadFromExcel = async (req, res) => {
             const sheetName = workbook.SheetNames[0];
             rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
         } catch (error) {
-            // 💡 මේ පේළිය දැම්මම Terminal එකේ ඇත්තම Error එක පෙනෙනවා
             console.error("Excel Parse Error:", error);
             return res.status(400).json({ success: false, error: "Invalid Excel file format. Please use the exact template provided." });
         }
@@ -1054,7 +1206,7 @@ export const bulkUploadFromExcel = async (req, res) => {
             return n;
         });
 
-        // 👑 NEW ARCHITECT LOGIC: Database එකේ දැනට තියෙන බඩු වල නම් ටිකයි Barcodes ටිකයි කලින්ම ගන්නවා
+        // 👑 NEW ARCHITECT LOGIC: Build Name/Barcode Map
         const existingProducts = await Product.find({ shopId: req.user.shopId }).select('name barcode');
         const nameToBarcodeMap = new Map();
         existingProducts.forEach(p => {
@@ -1084,34 +1236,26 @@ export const bulkUploadFromExcel = async (req, res) => {
 
             const buyingPrice = parseFloat(row.buyingprice || row['buyingprice'] || 0);
 
-            // 🚀 PRO FIX: Smart Excel Serial Date Converter
+            // Smart Excel Serial Date Converter
             let parsedDate = null;
             if (row.expirydate) {
                 const dateVal = row.expirydate;
-                
-                // 1. Check if it's an Excel Serial Number (e.g., 46752 for 2027-12-31)
-                // Serial numbers for dates in the 2000s are typically greater than 30000
                 if (!isNaN(dateVal) && Number(dateVal) > 20000) {
                     const excelDays = Number(dateVal);
-                    // Formula: (Excel Days - 25569 Days to 1970) * Seconds in Day * 1000 Milliseconds
                     parsedDate = new Date(Math.round((excelDays - 25569) * 86400 * 1000));
                 } else {
-                    // 2. Fallback for standard string dates (e.g., "2027-12-31" from CSV or Text fields)
                     parsedDate = new Date(dateVal);
                 }
             }
             const validExpiryDate = (parsedDate && !isNaN(parsedDate.getTime())) ? parsedDate : null;
 
-            // 🛠️ BUG FIX: Barcode Collision Prevention (crypto.randomUUID භාවිතා කිරීම)
             let finalBarcode = row.barcode ? String(row.barcode).trim() : null;
 
             if (!finalBarcode) {
                 const cleanName = String(row.name).trim().toLowerCase();
-
                 if (nameToBarcodeMap.has(cleanName)) {
                     finalBarcode = nameToBarcodeMap.get(cleanName);
                 } else {
-                    // Math.random වෙනුවට 100% Unique වෙන UUID එකක් පාවිච්චි කරනවා
                     const uniqueId = crypto.randomUUID().split('-')[0].toUpperCase();
                     finalBarcode = `840-${uniqueId}-${String(i).padStart(4, '0')}`;
                 }
@@ -1128,7 +1272,7 @@ export const bulkUploadFromExcel = async (req, res) => {
                 stock: parseInt(row.stock) || 0,
                 unit: ['pcs', 'kg', 'g', 'ltr', 'ml', 'packet', 'bottle', 'bundle'].includes(row.unit) ? row.unit : 'pcs',
                 minStockLevel: parseInt(row.minstocklevel || row.minstock || 10) || 10,
-                expiryDate: validExpiryDate, // 👈 අලුත් Date Variable එක
+                expiryDate: validExpiryDate,
                 imageUrl: row.imageurl || row.image || null
             });
         }
@@ -1137,15 +1281,48 @@ export const bulkUploadFromExcel = async (req, res) => {
             return res.status(400).json({ success: false, error: 'No valid products found to process.', errorRows });
         }
 
+        // 👑 FIX 2: Subscription Plan Limit Check
+        const currentCount = await Product.countDocuments({
+            shopId: req.user.shopId,
+            status: { $ne: 'archived' }
+        });
+
+        const effectivePlan = await getEffectivePlan(req.user.shopId);
+        const limit = PLAN_FEATURES[effectivePlan]?.maxProducts || 500;
+
+        if (limit !== Infinity) {
+            const incomingBarcodes = validRows.map(r => r.barcode).filter(Boolean);
+            const existingActiveProducts = await Product.find({
+                shopId: req.user.shopId,
+                barcode: { $in: incomingBarcodes },
+                status: { $ne: 'archived' }
+            }).select('barcode');
+
+            const existingBarcodeSet = new Set(existingActiveProducts.map(p => p.barcode));
+            let newInsertsCount = 0;
+
+            validRows.forEach(row => {
+                if (!row.barcode || !existingBarcodeSet.has(row.barcode)) {
+                    newInsertsCount++;
+                }
+            });
+
+            if ((currentCount + newInsertsCount) > limit) {
+                return res.status(403).json({
+                    success: false,
+                    error: `Bulk upload blocked. Your plan allows max ${limit} active products. You have ${currentCount}. Excel contains ${newInsertsCount} new items.`
+                });
+            }
+        }
+
         // STEP 5: Process images in parallel with Request Timeout Guard
         const CONCURRENCY = 3;
         const rowsWithImages = [...validRows];
-        const MAX_PROCESSING_TIME = 50 * 1000; // 🛠️ FIX: 50 Seconds max limit for image processing
+        const MAX_PROCESSING_TIME = 50 * 1000;
         const startTime = Date.now();
         let timeLimitReached = false;
 
         for (let i = 0; i < rowsWithImages.length; i += CONCURRENCY) {
-            // 🛠️ FIX: Server-side timeout guard to prevent request hanging
             if (Date.now() - startTime > MAX_PROCESSING_TIME) {
                 console.warn("[Bulk Upload] Time limit reached. Skipping remaining images to prevent timeout.");
                 timeLimitReached = true;
@@ -1178,7 +1355,7 @@ export const bulkUploadFromExcel = async (req, res) => {
                     category: row.category,
                     buyingPrice: row.buyingPrice,
                     price: row.price,
-                    stock: Math.max(0, parseInt(row.stock) || 0), // 🛠️ FIX: Negative stock guard
+                    stock: Math.max(0, parseInt(row.stock) || 0),
                     unit: row.unit,
                     minStockLevel: row.minStockLevel,
                     expiryDate: row.expiryDate,
@@ -1188,11 +1365,10 @@ export const bulkUploadFromExcel = async (req, res) => {
                 $setOnInsert: {}
             };
 
-            // 🛠️ FIX: Don't overwrite existing images unconditionally (Logic Gap)
             if (row.processedImageUrl) {
-                updateDoc.$set.image = row.processedImageUrl; // අලුත් ඉමේජ් එකක් දුන්නොත් විතරක් Update කරනවා
+                updateDoc.$set.image = row.processedImageUrl; 
             } else {
-                updateDoc.$setOnInsert.image = DEFAULT_IMAGE; // අලුත්ම බඩුවක් නම් විතරක් Default Image එක දානවා
+                updateDoc.$setOnInsert.image = DEFAULT_IMAGE; 
             }
 
             return {
@@ -1217,6 +1393,7 @@ export const bulkUploadFromExcel = async (req, res) => {
                 updated: result.modifiedCount,
                 imagesUploaded: rowsWithImages.filter(r => r.processedImageUrl).length,
                 imagesFailed: rowsWithImages.filter(r => r.imageUrl && !r.processedImageUrl).length,
+                timeLimitReached, // 👑 FIX 5: Exporting flag to frontend
                 skipped: errorRows.length,
                 errorRows: errorRows.slice(0, 20)
             }
