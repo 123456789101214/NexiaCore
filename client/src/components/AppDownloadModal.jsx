@@ -182,8 +182,8 @@ const AppDownloadModal = () => {
                         </div>
 
                         <a
-                            href="/downloads/NexiaCore_POS_v1.0.1.apk"
-                            download="NexiaCore_POS_v1.0.1.apk" 
+                            href="/downloads/NexiaCore_POS_v2.0.1.apk"
+                            download="NexiaCore_POS_v2.0.1.apk" 
                             target="_blank"
                             rel="external noopener noreferrer" 
                             onClick={() => setTimeout(() => setIsOpen(false), 1000)}
