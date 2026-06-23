@@ -200,7 +200,7 @@ const SalesChart = () => {
                                     fillOpacity={1} 
                                     fill="url(#colorSales)" 
                                     activeDot={{ r: 6, strokeWidth: 0, fill: '#3b82f6', className: 'shadow-lg drop-shadow-[0_0_8px_rgba(59,130,246,0.8)]' }}
-                                    animationDuration={1000}
+                                    animationDuration={0}
                                 />
                             )}
                             {canSeeProfit && showProfit && (
@@ -213,7 +213,7 @@ const SalesChart = () => {
                                     fillOpacity={1} 
                                     fill="url(#colorProfit)" 
                                     activeDot={{ r: 5, strokeWidth: 0, fill: '#10b981', className: 'shadow-lg drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' }}
-                                    animationDuration={1000}
+                                    animationDuration={0}
                                 />
                             )}
                         </AreaChart>

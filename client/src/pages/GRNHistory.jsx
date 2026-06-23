@@ -363,7 +363,7 @@ const GRNHistory = () => {
     )}
 </div>
 
-                    <div className="relative w-full md:w-auto flex-1 min-w-[200px]">
+                    {/* <div className="relative w-full md:w-auto flex-1 min-w-[200px]">
                         <button 
                             onClick={() => { setIsSupplierFilterOpen(!isSupplierFilterOpen); setIsStatusFilterOpen(false); }}
                             className="w-full flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950/50 px-4 py-3.5 md:py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-400 transition-all focus:ring-2 focus:ring-indigo-500/20 shadow-inner"
@@ -384,9 +384,9 @@ const GRNHistory = () => {
                                 ))}
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
-                    <div className="relative w-full md:w-auto flex-1 min-w-[180px]">
+                    {/* <div className="relative w-full md:w-auto flex-1 min-w-[180px]">
                         <button 
                             onClick={() => { setIsStatusFilterOpen(!isStatusFilterOpen); setIsSupplierFilterOpen(false); }}
                             className="w-full flex items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950/50 px-4 py-3.5 md:py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-400 transition-all focus:ring-2 focus:ring-indigo-500/20 shadow-inner"
@@ -404,7 +404,7 @@ const GRNHistory = () => {
                                 <div onClick={() => { setFilters({...filters, status: 'voided'}); setIsStatusFilterOpen(false); }} className={`flex items-center gap-2 px-3 py-3 rounded-xl cursor-pointer text-xs font-bold uppercase transition-colors ${filters.status === 'voided' ? 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}><XCircle size={16} className={filters.status === 'voided' ? 'text-red-500' : 'text-red-400'} /> Voided</div>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     {(filters.startDate || filters.endDate || filters.supplierId || filters.status) && (
                         <button 

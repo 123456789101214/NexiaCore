@@ -44,18 +44,32 @@ app.listen(PORT, '0.0.0.0', () => {
 
 app.use(helmet());
 // Middleware
+
+// 🛡️ PRODUCTION CORS CONFIGURATION (STRICT)
+// ==========================================
+const allowedOrigins = [
+  'https://app.nexiacore.shop',       // Primary SaaS Domain
+  'https://nexia-core.vercel.app',    // Vercel Fallback
+  'http://localhost',                 // Capacitor Android WebView
+  'capacitor://localhost',            // Capacitor iOS WebView
+  'http://localhost:5173',            // Vite Local Dev
+  'http://localhost:4173'             // Vite Preview
+];
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://192.168.1.5:5000/api',
-        'http://localhost',           // 💻 Local Development වලට
-        'https://app.nexiacore.shop', 
-        'https://app.nexiacore.shop',   // 🚀 Vercel Production Link එක (අගට / දාන්න එපා)
-        process.env.CLIENT_URL             // (Optional) Railway එකෙන් Variable එකක් දුන්නොත්
-    ].filter(Boolean),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS BLOCKED] Attempted access from origin: ${origin}`);
+      callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
